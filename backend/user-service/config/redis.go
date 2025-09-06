@@ -2,17 +2,15 @@ package config
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-redis/redis/v8"
 )
 
 var Ctx = context.Background()
 
-func (cfg Config) NewRedisClient() *redis.Client {
-	connect := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
+func NewRedisClient() *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr: connect,
+		Addr: "localhost:6379",
 	})
 
 	// Memastikan Redis terhubung
