@@ -18,7 +18,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-func RunServe() {
+func RunServer() {
 	cfg := config.NewConfig()
 	db, err := cfg.ConnectionPostgres()
 	if err != nil {

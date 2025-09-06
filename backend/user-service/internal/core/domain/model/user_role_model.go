@@ -11,6 +11,10 @@ type UserRole struct {
 	DeletedAt *time.Time `gorm:"index"`
 }
 
+type Tabler interface {
+	TableName() string
+}
+
 func (UserRole) TableName() string {
 	return "user_roles"
 }
