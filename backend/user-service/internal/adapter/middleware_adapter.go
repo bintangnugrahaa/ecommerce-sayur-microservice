@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 	"user-service/config"
-	"user-service/internal/core/service"
 
 	"github.com/labstack/echo/v4"
 )
@@ -21,31 +20,26 @@ type middlewareAdapter struct {
 func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			redisConn := config.NewRedisClient()
+			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "missing or invalid token")
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
-			claims := jwt.MapClaims{}
-			
-			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, echo.NewHTTPError(http.StatusUnauthorized, "unexpected signing method")
-				}
-				return []byte(secretKey), nil
-			})
-			if err != nil || !token.Valid {
-				return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
+			getSession, err := redisConn.HGetAll(c.Request().Context(), tokenString).Result()
+			if err != nil || len(getSession) == 0 {
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing or invalid token")
 			}
-			
-			getSession :=
+
+			c.Set("user", getSession)
+			return next(c)
 		}
 	}
-	panic("unimplemented")
 }
 
-func NewMiddlewareAdapter(cfg *config.Config, jwtService service.JwtServiceInterface) MiddlewareAdapterInterface {
+func NewMiddlewareAdapter(cfg *config.Config) MiddlewareAdapterInterface {
 	return &middlewareAdapter{
 		cfg: cfg,
 	}

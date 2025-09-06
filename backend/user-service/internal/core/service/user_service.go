@@ -47,6 +47,7 @@ func (u *userService) SignIn(ctx context.Context, req entity.UserEntity) (*entit
 		"email":      user.Email,
 		"logged_in":  true,
 		"created_at": time.Now().String(),
+		"token":      token,
 	}
 
 	redisConn := config.NewRedisClient()
