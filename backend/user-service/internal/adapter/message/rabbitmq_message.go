@@ -1,9 +1,11 @@
 package message
 
 import (
+	"encoding/json"
 	"user-service/config"
 
 	"github.com/labstack/gommon/log"
+	"github.com/streadway/amqp"
 )
 
 func PublishMessage(email, message, notif_type string) error {
@@ -29,10 +31,31 @@ func PublishMessage(email, message, notif_type string) error {
 		false,
 		nil,
 	)
-	
+
 	if err != nil {
 		log.Errorf("[PublishMessage-3] Failed to declare a queue: %v", err)
 		return err
 	}
 
+	notification := map[string]string{
+		"email":   email,
+		"message": message,
+	}
+
+	body, err := json.Marshal(notification)
+	if err != nil {
+		log.Errorf("[PublishMessage-4] Failed to marshal JSON: %v", err)
+		return err
+	}
+
+	return ch.Publish(
+		"",
+		queue.Name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
 }
