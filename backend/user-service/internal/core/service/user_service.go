@@ -18,12 +18,22 @@ import (
 type UserServiceInterface interface {
 	SignIn(ctx context.Context, req entity.UserEntity) (*entity.UserEntity, string, error)
 	CreateUserAccount(ctx context.Context, req entity.UserEntity) error
+	ForgotPassword(ctx context.Context, req entity.UserEntity) error
 }
 
 type userService struct {
 	repo       repository.UserRepositoryInterface
 	cfg        *config.Config
 	jwtService JwtServiceInterface
+}
+
+// ForgotPassword implements UserServiceInterface.
+func (u *userService) ForgotPassword(ctx context.Context, req entity.UserEntity) error {
+	user, err := u.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		log.Errorf("[UserService-1] Forgot Password: %v", err)
+		return err
+	}
 }
 
 // CreateUserAccount implements UserServiceInterface.

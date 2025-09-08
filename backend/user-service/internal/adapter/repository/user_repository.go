@@ -26,6 +26,7 @@ func (u *userRepository) CreateUserAccount(ctx context.Context, req entity.UserE
 	err := u.db.Where("name = ?", "Customer").First(&modelRole).Error
 	if err != nil {
 		log.Errorf("[UserRepository-1] CreateUserAccount: %v", err)
+		return err
 	}
 
 	modelUser := model.User{
