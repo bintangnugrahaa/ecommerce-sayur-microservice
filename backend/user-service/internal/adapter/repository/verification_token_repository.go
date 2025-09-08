@@ -5,6 +5,7 @@ import (
 	"user-service/internal/core/domain/entity"
 	"user-service/internal/core/domain/model"
 
+	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
 
@@ -24,8 +25,12 @@ func (v *verificationTokenRepository) CreateVerificationToken(ctx context.Contex
 		TokenType: req.TokenType,
 	}
 
-	if err := v.db
-	panic("unimplemented")
+	if err := v.db.Create(&modelVerificationToken).Error; err != nil {
+		log.Errorf("[VerificationTokenRepository-1] CreateVerificationToken: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func NewVerificationTokenRepository(db *gorm.DB) VerificationTokenRepositoryInterface {

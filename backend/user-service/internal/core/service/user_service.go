@@ -25,6 +25,7 @@ type userService struct {
 	repo       repository.UserRepositoryInterface
 	cfg        *config.Config
 	jwtService JwtServiceInterface
+	repoToken  repository.VerificationTokenRepositoryInterface
 }
 
 // ForgotPassword implements UserServiceInterface.
@@ -34,6 +35,30 @@ func (u *userService) ForgotPassword(ctx context.Context, req entity.UserEntity)
 		log.Errorf("[UserService-1] Forgot Password: %v", err)
 		return err
 	}
+
+	token := uuid.New().String()
+
+	reqEntity := entity.VerificationTokenEntity{
+		UserID:    user.ID,
+		Token:     token,
+		TokenType: "forgot_password",
+	}
+
+	err = u.repoToken.CreateVerificationToken(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserService-2] ForgotPassword: %v", err)
+		return err
+	}
+
+	urlForgot := fmt.Sprintf("%s/forgot-password?token=%s", u.cfg.App.UrlForgotPassword, token)
+	messageparam := fmt.Sprintf("Please click link below for reset password: %v", urlForgot)
+	err = message.PublishMessage(req.Email, messageparam, "forgot-password")
+	if err != nil {
+		log.Errorf("[UserService-3] Forgot Password: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // CreateUserAccount implements UserServiceInterface.
@@ -103,10 +128,11 @@ func (u *userService) SignIn(ctx context.Context, req entity.UserEntity) (*entit
 	return user, token, nil
 }
 
-func NewUserService(repo repository.UserRepositoryInterface, cfg *config.Config, jwtService JwtServiceInterface) UserServiceInterface {
+func NewUserService(repo repository.UserRepositoryInterface, cfg *config.Config, jwtService JwtServiceInterface, repoToken repository.VerificationTokenRepositoryInterface) UserServiceInterface {
 	return &userService{
 		repo:       repo,
 		cfg:        cfg,
 		jwtService: jwtService,
+		repoToken:  repoToken,
 	}
 }

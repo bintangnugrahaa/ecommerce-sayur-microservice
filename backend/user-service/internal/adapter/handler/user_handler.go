@@ -17,10 +17,55 @@ import (
 type UserHandlerInterface interface {
 	SignIn(c echo.Context) error
 	CreateUserAccount(c echo.Context) error
+	ForgotPassword(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// ForgotPassword implements UserHandlerInterface.
+func (u *userHandler) ForgotPassword(c echo.Context) error {
+	var (
+		req  = request.ForgotPasswordRequest{}
+		resp = response.DefaultResponse{}
+		ctx  = c.Request().Context()
+	)
+
+	if err = c.Bind(&req); err != nil {
+		log.Errorf("[UserHandler-1] ForgotPassword: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusUnprocessableEntity, resp)
+	}
+
+	if err = c.Validate(req); err != nil {
+		log.Errorf("[UserHandler-2] ForgotPassword: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusUnprocessableEntity, resp)
+	}
+
+	reqEntity := entity.UserEntity{
+		Email: req.Email,
+	}
+
+	err = u.userService.ForgotPassword(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-3] ForgotPassword: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "User not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "Success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
 }
 
 // CreateUserAccount implements UserHandlerInterface.
@@ -135,6 +180,7 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	e.Use(middleware.Recover())
 	e.POST("/signin", userHandler.SignIn)
 	e.POST("/signup", userHandler.CreateUserAccount)
+	e.POST("/forgot-password", userHandler.ForgotPassword)
 
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
