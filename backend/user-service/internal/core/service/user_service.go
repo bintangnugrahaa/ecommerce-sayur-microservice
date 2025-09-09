@@ -19,6 +19,7 @@ type UserServiceInterface interface {
 	SignIn(ctx context.Context, req entity.UserEntity) (*entity.UserEntity, string, error)
 	CreateUserAccount(ctx context.Context, req entity.UserEntity) error
 	ForgotPassword(ctx context.Context, req entity.UserEntity) error
+	VerifyToken(ctx context.Context, token string) (*entity.UserEntity, error)
 }
 
 type userService struct {
@@ -26,6 +27,17 @@ type userService struct {
 	cfg        *config.Config
 	jwtService JwtServiceInterface
 	repoToken  repository.VerificationTokenRepositoryInterface
+}
+
+// VerifyToken implements UserServiceInterface.
+func (u *userService) VerifyToken(ctx context.Context, token string) (*entity.UserEntity, error) {
+	verifyToken, err := u.repoToken.GetDataByToken(ctx, token)
+	if err != nil {
+		log.Errorf("[UserService-1] VerifyToken: %v", err)
+		return nil, err
+	}
+
+	panic("unimplemented")
 }
 
 // ForgotPassword implements UserServiceInterface.
