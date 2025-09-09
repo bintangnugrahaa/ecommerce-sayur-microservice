@@ -37,7 +37,37 @@ func (u *userService) VerifyToken(ctx context.Context, token string) (*entity.Us
 		return nil, err
 	}
 
-	panic("unimplemented")
+	user, err := u.repo.UpdateUserVerified(ctx, verifyToken.UserID)
+	if err != nil {
+		log.Errorf("[UserService-2] VerifyToken: %v", err)
+		return nil, err
+	}
+
+	accessToken, err := u.jwtService.GenerateToken(user.ID)
+	if err != nil {
+		log.Errorf("[UserService-3] VerifyToken: %v", err)
+		return nil, err
+	}
+
+	sessionData := map[string]interface{}{
+		"user_id":    user.ID,
+		"name":       user.Name,
+		"email":      user.Email,
+		"logged_in":  true,
+		"created_at": time.Now().String(),
+		"token":      token,
+	}
+
+	redisConn := config.NewRedisClient()
+	err = redisConn.HSet(ctx, token, sessionData).Err()
+	if err != nil {
+		log.Errorf("[UserService-4] VerifyToken: %v", err)
+		return nil, err
+	}
+
+	user.Token = accessToken
+
+	return user, nil
 }
 
 // ForgotPassword implements UserServiceInterface.
