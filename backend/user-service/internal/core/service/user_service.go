@@ -57,7 +57,7 @@ func (u *userService) UpdatePassword(ctx context.Context, req entity.UserEntity)
 		return err
 	}
 
-	panic("unimplemented")
+	return nil
 }
 
 // VerifyToken implements UserServiceInterface.

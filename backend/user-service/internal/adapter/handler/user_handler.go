@@ -19,10 +19,78 @@ type UserHandlerInterface interface {
 	CreateUserAccount(c echo.Context) error
 	ForgotPassword(c echo.Context) error
 	VerifyAccount(c echo.Context) error
+	UpdatePassword(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// UpdatePassword implements UserHandlerInterface.
+func (u *userHandler) UpdatePassword(c echo.Context) error {
+	var (
+		resp = response.DefaultResponse{}
+		req  = request.UpdatePasswordRequest{}
+		ctx  = c.Request().Context()
+	)
+
+	tokenString := c.QueryParam("token")
+	if tokenString == "" {
+		log.Infof("[UserHandler-1] UpdatePassword: %s", "missing or invalid token")
+		resp.Message = "missing or invalid token"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	if err := c.Bind(&req); err != nil {
+		log.Infof("[UserHandler-2] UpdatePassword: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(req); err != nil {
+		log.Errorf("[UserHandler-3] UpdatePassword: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusUnprocessableEntity, resp)
+	}
+
+	if req.NewPassword != req.ConfirmPassword {
+		log.Infof("[UserHandler-4] UpdatePassword: %s", "new password and confirm password does not match")
+		resp.Message = "new password and confirm password does not match"
+		resp.Data = nil
+		return c.JSON(http.StatusUnprocessableEntity, resp)
+	}
+
+	reqEntity := entity.UserEntity{
+		Password: req.NewPassword,
+		Token:    tokenString,
+	}
+
+	err = u.userService.UpdatePassword(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-5] UpdatePassword: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "User not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+
+		if err.Error() == "401" {
+			resp.Message = "Token expired or invalid"
+			resp.Data = nil
+			return c.JSON(http.StatusUnauthorized, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Data = nil
+	resp.Message = "Password updated successfully"
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // VerifyAccount implements UserHandlerInterface.
@@ -233,6 +301,7 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	e.POST("/signup", userHandler.CreateUserAccount)
 	e.POST("/forgot-password", userHandler.ForgotPassword)
 	e.GET("/verify-account", userHandler.VerifyAccount)
+	e.PUT("/update-password", userHandler.UpdatePassword)
 
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
