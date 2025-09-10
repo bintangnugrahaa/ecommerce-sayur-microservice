@@ -20,6 +20,7 @@ type UserServiceInterface interface {
 	CreateUserAccount(ctx context.Context, req entity.UserEntity) error
 	ForgotPassword(ctx context.Context, req entity.UserEntity) error
 	VerifyToken(ctx context.Context, token string) (*entity.UserEntity, error)
+	UpdatePassword(ctx context.Context, req entity.UserEntity) error
 }
 
 type userService struct {
@@ -27,6 +28,36 @@ type userService struct {
 	cfg        *config.Config
 	jwtService JwtServiceInterface
 	repoToken  repository.VerificationTokenRepositoryInterface
+}
+
+// UpdatePassword implements UserServiceInterface.
+func (u *userService) UpdatePassword(ctx context.Context, req entity.UserEntity) error {
+	token, err := u.repoToken.GetDataByToken(ctx, req.Token)
+	if err != nil {
+		log.Errorf("[UserService-1] UpdatePassword: %v", err)
+		return err
+	}
+
+	if token.TokenType != "reset_password" {
+		err = errors.New("401")
+		log.Errorf("[UserService-2] UpdatePassword: %v", err)
+		return err
+	}
+
+	password, err := conv.HashPassword(req.Password)
+	if err != nil {
+		log.Errorf("[UserService-3] UpdatePassword: %v", err)
+		return err
+	}
+	req.Password = password
+
+	err = u.repo.UpdatePasswordByID(ctx, req)
+	if err != nil {
+		log.Errorf("[UserService-4] UpdatePassword: %v", err)
+		return err
+	}
+
+	panic("unimplemented")
 }
 
 // VerifyToken implements UserServiceInterface.
