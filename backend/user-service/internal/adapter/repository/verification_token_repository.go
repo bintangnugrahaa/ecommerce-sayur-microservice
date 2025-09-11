@@ -24,7 +24,7 @@ type verificationTokenRepository struct {
 func (v *verificationTokenRepository) GetDataByToken(ctx context.Context, token string) (*entity.VerificationTokenEntity, error) {
 	modelToken := model.VerificationToken{}
 
-	if err := v.db.Where("token = ?", token).First(&modelToken).Error; err != nil {
+	if err := v.db.Where("token =?", token).First(&modelToken).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = errors.New("404")
 			log.Errorf("[VerificationTokenRepository-1] GetDataByToken: %v", err)
@@ -35,7 +35,7 @@ func (v *verificationTokenRepository) GetDataByToken(ctx context.Context, token 
 	}
 
 	currentTime := time.Now()
-	if currentTime.After(modelToken.ExpiresAt) {
+	if currentTime.Before(modelToken.ExpiresAt) {
 		err := errors.New("401")
 		log.Errorf("[VerificationTokenRepository-3] GetDataByToken: %v", err)
 		return nil, err
