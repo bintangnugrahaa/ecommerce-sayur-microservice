@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -21,6 +22,7 @@ type UserServiceInterface interface {
 	ForgotPassword(ctx context.Context, req entity.UserEntity) error
 	VerifyToken(ctx context.Context, token string) (*entity.UserEntity, error)
 	UpdatePassword(ctx context.Context, req entity.UserEntity) error
+	GetProfileUser(ctx context.Context, userID int64) (*entity.UserEntity, error)
 }
 
 type userService struct {
@@ -28,6 +30,11 @@ type userService struct {
 	cfg        *config.Config
 	jwtService JwtServiceInterface
 	repoToken  repository.VerificationTokenRepositoryInterface
+}
+
+// GetProfileUser implements UserServiceInterface.
+func (u *userService) GetProfileUser(ctx context.Context, userID int64) (*entity.UserEntity, error) {
+	return u.repo.GetUserByID(ctx, userID)
 }
 
 // UpdatePassword implements UserServiceInterface.
@@ -88,10 +95,17 @@ func (u *userService) VerifyToken(ctx context.Context, token string) (*entity.Us
 		"logged_in":  true,
 		"created_at": time.Now().String(),
 		"token":      token,
+		"role_name":  user.RoleName,
+	}
+
+	jsonData, err := json.Marshal(sessionData)
+	if err != nil {
+		fmt.Println("Error encoding JSON:", err)
+		return nil, err
 	}
 
 	redisConn := config.NewRedisClient()
-	err = redisConn.Set(ctx, token, sessionData, time.Hour*23).Err()
+	err = redisConn.Set(ctx, token, jsonData, time.Hour*23).Err()
 	if err != nil {
 		log.Errorf("[UserService-4] VerifyToken: %v", err)
 		return nil, err
@@ -192,8 +206,14 @@ func (u *userService) SignIn(ctx context.Context, req entity.UserEntity) (*entit
 		"token":      token,
 	}
 
+	jsonData, err := json.Marshal(sessionData)
+	if err != nil {
+		fmt.Println("Error encoding JSON:", err)
+		return nil, "", err
+	}
+
 	redisConn := config.NewRedisClient()
-	err = redisConn.Set(ctx, token, sessionData, time.Hour*23).Err()
+	err = redisConn.Set(ctx, token, jsonData, time.Hour*23).Err()
 	if err != nil {
 		log.Errorf("[UserService-4] SignIn: %v", err)
 		return nil, "", err

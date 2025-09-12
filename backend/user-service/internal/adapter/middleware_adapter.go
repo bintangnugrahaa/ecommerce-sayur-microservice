@@ -5,6 +5,7 @@ import (
 	"strings"
 	"user-service/config"
 	"user-service/internal/adapter/handler/response"
+	"user-service/internal/core/service"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -15,7 +16,8 @@ type MiddlewareAdapterInterface interface {
 }
 
 type middlewareAdapter struct {
-	cfg *config.Config
+	cfg        *config.Config
+	jwtService service.JwtServiceInterface
 }
 
 // CheckToken implements MiddlewareAdapterInterface.
@@ -34,14 +36,15 @@ func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+			_, err := m.jwtService.GenerateToken()
+
 			getSession, err := redisConn.Get(c.Request().Context(), tokenString).Result()
 			if err != nil || len(getSession) == 0 {
-				if err != nil {
-					log.Errorf("[MiddlewareAdapter-2] CheckToken: %s", err.Error())
-					respErr.Message = err.Error()
-					respErr.Data = nil
-					return c.JSON(http.StatusUnauthorized, respErr)
-				}
+				log.Errorf("[MiddlewareAdapter-2] CheckToken: %s", err.Error())
+				respErr.Message = err.Error()
+				respErr.Data = nil
+				return c.JSON(http.StatusUnauthorized, respErr)
 			}
 
 			c.Set("user", getSession)
@@ -50,8 +53,9 @@ func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 	}
 }
 
-func NewMiddlewareAdapter(cfg *config.Config) MiddlewareAdapterInterface {
+func NewMiddlewareAdapter(cfg *config.Config, jwtService service.JwtServiceInterface) MiddlewareAdapterInterface {
 	return &middlewareAdapter{
-		cfg: cfg,
+		cfg:        cfg,
+		jwtService: jwtService,
 	}
 }
