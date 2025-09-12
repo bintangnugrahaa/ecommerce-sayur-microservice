@@ -37,11 +37,17 @@ func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
-			_, err := m.jwtService.GenerateToken()
+			_, err := m.jwtService.ValidateToken(tokenString)
+			if err != nil {
+				log.Errorf("[MiddlewareAdapter-2] CheckToken: %s", err.Error())
+				respErr.Message = err.Error()
+				respErr.Data = nil
+				return c.JSON(http.StatusUnauthorized, respErr)
+			}
 
 			getSession, err := redisConn.Get(c.Request().Context(), tokenString).Result()
 			if err != nil || len(getSession) == 0 {
-				log.Errorf("[MiddlewareAdapter-2] CheckToken: %s", err.Error())
+				log.Errorf("[MiddlewareAdapter-3] CheckToken: %s", err.Error())
 				respErr.Message = err.Error()
 				respErr.Data = nil
 				return c.JSON(http.StatusUnauthorized, respErr)

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"user-service/config"
 	"user-service/internal/adapter"
@@ -30,10 +30,58 @@ type userHandler struct {
 
 // GetProfileUser implements UserHandlerInterface.
 func (u *userHandler) GetProfileUser(c echo.Context) error {
-	user := c.Get("user")
-	fmt.Println(user)
-	
-	return nil
+	var (
+		resp        = response.DefaultResponse{}
+		respProfile = response.ProfileResponse{}
+		ctx         = c.Request().Context()
+		jwtUserData = entity.JwtUserData{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] GetProfileUser: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	err := json.Unmarshal([]byte(user), &jwtUserData)
+	if err != nil {
+		log.Errorf("[UserHandler-2] GetProfileUser: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	userID := jwtUserData.UserID
+
+	dataUser, err := u.userService.GetProfileUser(ctx, userID)
+	if err != nil {
+		log.Errorf("[UserHandler-3] GetProfileUser: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "user not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	respProfile.Address = dataUser.Address
+	respProfile.Name = dataUser.Name
+	respProfile.Email = dataUser.Email
+	respProfile.ID = dataUser.ID
+	respProfile.Lat = dataUser.Lat
+	respProfile.Lng = dataUser.Lng
+	respProfile.Phone = dataUser.Phone
+	respProfile.Photo = dataUser.Photo
+	respProfile.RoleName = dataUser.RoleName
+
+	resp.Message = "success"
+	resp.Data = respProfile
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // UpdatePassword implements UserHandlerInterface.
@@ -303,7 +351,7 @@ func (u *userHandler) SignIn(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg *config.Config) UserHandlerInterface {
+func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg *config.Config, jwtService service.JwtServiceInterface) UserHandlerInterface {
 	userHandler := &userHandler{userService: userService}
 
 	e.Use(middleware.Recover())
@@ -313,7 +361,7 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	e.GET("/verify-account", userHandler.VerifyAccount)
 	e.PUT("/update-password", userHandler.UpdatePassword)
 
-	mid := adapter.NewMiddlewareAdapter(cfg)
+	mid := adapter.NewMiddlewareAdapter(cfg, jwtService)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/profile", userHandler.GetProfileUser)
 	adminGroup.GET("/check", func(c echo.Context) error {
