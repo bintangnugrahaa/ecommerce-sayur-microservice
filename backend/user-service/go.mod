@@ -43,6 +43,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/martian/v3 v3.3.3
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/rs/zerolog v1.34.0
@@ -54,6 +55,7 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/streadway/amqp v1.1.0
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/supabase-community/storage-go v0.8.1
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
