@@ -74,11 +74,12 @@ func (u *uploadImage) UploadImage(c echo.Context) error {
 }
 
 func getExtension(fileName string) string {
-	ext := "." + fileName[len(fileName)-3:] // Ambil 3 karakter terakhir untuk ekstensi
-	if len(fileName) > 4 && fileName[len(fileName)-4] == '.' {
-		ext = "." + fileName[len(fileName)-4:]
+	for i := len(fileName) - 1; i >= 0; i-- {
+		if fileName[i] == '.' {
+			return fileName[i:]
+		}
 	}
-	return ext
+	return ""
 }
 
 func NewUploadImage(e *echo.Echo, cfg *config.Config, storageHandler storage.SupabaseInterface, jwtService service.JwtServiceInterface) UploadImageInterface {
