@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"user-service/config"
 	"user-service/internal/adapter"
 	"user-service/internal/adapter/handler/request"
@@ -56,7 +58,51 @@ func (u *userHandler) UpdateDataUser(c echo.Context) error {
 
 	userID := jwtUserData.UserID
 
-	panic("unimplemented")
+	if err = c.Bind(&req); err != nil {
+		log.Errorf("[UserHandler-3] UpdateDataUser: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(&req); err != nil {
+		log.Errorf("[UserHandler-4] UpdateDataUser: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	latString := strconv.FormatFloat(req.Lat, 'g', -1, 64)
+	lngString := strconv.FormatFloat(req.Lng, 'g', -1, 64)
+	phoneString := fmt.Sprintf("%d", req.Phone)
+
+	reqEntity := entity.UserEntity{
+		ID:      userID,
+		Name:    req.Name,
+		Email:   req.Email,
+		Address: req.Address,
+		Lat:     latString,
+		Lng:     lngString,
+		Phone:   phoneString,
+		Photo:   req.Photo,
+	}
+
+	err = u.userService.UpdateDataUser(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-5] UpdateDataUser: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "User not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "Success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetProfileUser implements UserHandlerInterface.
