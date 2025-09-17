@@ -22,10 +22,41 @@ type UserHandlerInterface interface {
 	VerifyAccount(c echo.Context) error
 	UpdatePassword(c echo.Context) error
 	GetProfileUser(c echo.Context) error
+	UpdateDataUser(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// UpdateDataUser implements UserHandlerInterface.
+func (u *userHandler) UpdateDataUser(c echo.Context) error {
+	var (
+		resp        = response.DefaultResponse{}
+		ctx         = c.Request().Context()
+		req         = request.UpdateDataUserRequest{}
+		jwtUserData = entity.JwtUserData{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] UpdateDataUser: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	err := json.Unmarshal([]byte(user), &jwtUserData)
+	if err != nil {
+		log.Errorf("[UserHandler-2] UpdateDataUser: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	userID := jwtUserData.UserID
+
+	panic("unimplemented")
 }
 
 // GetProfileUser implements UserHandlerInterface.
@@ -367,6 +398,9 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	adminGroup.GET("/check", func(c echo.Context) error {
 		return c.String(200, "OK")
 	})
+
+	authGroup := e.Group("/auth", mid.CheckToken())
+	authGroup.PUT("/profile", userHandler.UpdateDataUser)
 
 	return userHandler
 }
