@@ -40,7 +40,28 @@ func (r *roleRepository) Create(ctx context.Context, req entity.RoleEntity) erro
 func (r *roleRepository) Delete(ctx context.Context, id int64) error {
 	modelRole := model.Role{}
 
-	if err := r.db.Where("id = ?", id).Preload("")
+	if err := r.db.Where("id = ?", id).Preload("Users").First(&modelRole).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[RoleRepository-1] Delete: Role not found")
+			return err
+		}
+		log.Errorf("[RoleRepository-2] Delete: %v", err)
+		return err
+	}
+
+	if len(modelRole.Users) > 0 {
+		err := errors.New("400")
+		log.Infof("[RoleRepository-3] Delete: Role is associated with users")
+		return err
+	}
+
+	if err := r.db.Delete(&modelRole).Error; err != nil {
+		log.Errorf("[RoleRepository-3] Delete: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // GetAll implements RoleRepositoryInterface.
@@ -91,7 +112,26 @@ func (r *roleRepository) GetByID(ctx context.Context, id int64) (*entity.RoleEnt
 
 // Update implements RoleRepositoryInterface.
 func (r *roleRepository) Update(ctx context.Context, req entity.RoleEntity) error {
-	panic("unimplemented")
+	modelRole := model.Role{
+		Name: req.Name,
+	}
+
+	if err := r.db.Where("id = ?", req.ID).First(&modelRole).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[RoleRepository-1] Update: Role not found")
+			return err
+		}
+		log.Errorf("[RoleRepository-2] Update: %v", err)
+		return err
+	}
+
+	if err := r.db.Save(modelRole).Error; err != nil {
+		log.Errorf("[RoleRepository-3] Update: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func NewRoleRepository(db *gorm.DB) RoleRepositoryInterface {
