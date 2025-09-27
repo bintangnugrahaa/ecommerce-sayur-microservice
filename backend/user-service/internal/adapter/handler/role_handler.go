@@ -159,10 +159,9 @@ func (r *roleHandler) Delete(c echo.Context) error {
 // GetAll implements RoleHandlerInterface.
 func (r *roleHandler) GetAll(c echo.Context) error {
 	var (
-		respRole    = []response.RoleResponse{}
-		resp        = response.DefaultResponse{}
-		ctx         = c.Request().Context()
-		jwtUserData = entity.JwtUserData{}
+		respRole = []response.RoleResponse{}
+		resp     = response.DefaultResponse{}
+		ctx      = c.Request().Context()
 	)
 
 	user := c.Get("user").(string)
@@ -171,21 +170,6 @@ func (r *roleHandler) GetAll(c echo.Context) error {
 		resp.Message = "data token not found"
 		resp.Data = nil
 		return c.JSON(http.StatusNotFound, resp)
-	}
-
-	err := json.Unmarshal([]byte(user), &jwtUserData)
-	if err != nil {
-		log.Errorf("[RoleHandler-2] GetAll: %v", err)
-		resp.Message = err.Error()
-		resp.Data = nil
-		return c.JSON(http.StatusBadRequest, resp)
-	}
-
-	if jwtUserData.RoleName != "Super Admin" {
-		log.Errorf("[RoleHandler-3] GetAll: %s", "only Super Admin can access API role")
-		resp.Message = "only Super Admin can access API role"
-		resp.Data = nil
-		return c.JSON(http.StatusForbidden, resp)
 	}
 
 	search := c.QueryParam("search")

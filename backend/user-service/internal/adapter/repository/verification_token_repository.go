@@ -35,7 +35,7 @@ func (v *verificationTokenRepository) GetDataByToken(ctx context.Context, token 
 	}
 
 	currentTime := time.Now()
-	if currentTime.Before(modelToken.ExpiresAt) {
+	if currentTime.After(modelToken.ExpiresAt) {
 		err := errors.New("401")
 		log.Errorf("[VerificationTokenRepository-3] GetDataByToken: %v", err)
 		return nil, err
