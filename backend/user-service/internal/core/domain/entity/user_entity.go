@@ -14,3 +14,10 @@ type UserEntity struct {
 	IsVerified bool
 	Token      string
 }
+
+type QueryStringCustomer struct {
+	Search  string
+	Page    int64
+	Limit   int64
+	OrderBy string
+}

@@ -18,10 +18,45 @@ type UserRepositoryInterface interface {
 	UpdatePasswordByID(ctx context.Context, req entity.UserEntity) error
 	GetUserByID(ctx context.Context, userID int64) (*entity.UserEntity, error)
 	UpdateDataUser(ctx context.Context, req entity.UserEntity) error
+
+	// Modul Customers Admin
+	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, error)
 }
 
 type userRepository struct {
 	db *gorm.DB
+}
+
+// GetCustomerAll implements UserRepositoryInterface.
+func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, error) {
+	modelUsers := []model.User{}
+
+	if err := u.db.Preload("Roles", "name = ?", "Customer").Find(&modelUsers).Error; err != nil {
+		log.Errorf("[UserRepository-1] GetCustomerAll: %v", err)
+		return nil, err
+	}
+
+	if len(modelUsers) < 1 {
+		err := errors.New("404")
+		log.Infof("[UserRepository-1] GetCustomerAll: No Cutomer Found")
+		return nil, err
+	}
+
+	respEntities := []entity.UserEntity{}
+	for _, val := range modelUsers {
+		respEntities = append(respEntities, entity.UserEntity{
+			ID:         val.ID,
+			Name:       val.Name,
+			Email:      val.Email,
+			RoleName:   val.Roles[0].Name,
+			Phone:      val.Email,
+			Photo:      val.Photo,
+			IsVerified: false,
+			Token:      "",
+		})
+	}
+
+	panic("unimplemented")
 }
 
 // UpdateDataUser implements UserRepositoryInterface.
