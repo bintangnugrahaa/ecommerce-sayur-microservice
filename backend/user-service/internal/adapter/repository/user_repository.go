@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"time"
 	"user-service/internal/core/domain/entity"
 	"user-service/internal/core/domain/model"
@@ -20,7 +22,7 @@ type UserRepositoryInterface interface {
 	UpdateDataUser(ctx context.Context, req entity.UserEntity) error
 
 	// Modul Customers Admin
-	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, error)
+	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, error)
 }
 
 type userRepository struct {
@@ -28,13 +30,22 @@ type userRepository struct {
 }
 
 // GetCustomerAll implements UserRepositoryInterface.
-func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, error) {
+func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, error) {
 	modelUsers := []model.User{}
+	var countData int64
 
-	if err := u.db.Preload("Roles", "name = ?", "Customer").Find(&modelUsers).Error; err != nil {
+	order := fmt.Sprintf("%s %s", query.OrderBy, query.OrderType)
+	offset := (query.Page - 1) * query.Limit
+
+	sqlMain := u.db.Preload("Roles", "name = ?", "Customer").
+		Where("name ILIKE ? OR email ILIKE ? OR phone ILIKE ?", "%"+query.Search+"%", "%"+query.Search+"%", "%"+query.Search+"%")
+
+	if err := sqlMain.Model(&modelUsers).Count(&countData).Error; err != nil {
 		log.Errorf("[UserRepository-1] GetCustomerAll: %v", err)
-		return nil, err
+		return nil, 0, err
 	}
+
+	totalPage := int(math.Ceil(float64(countData) / float64(query.Limit)))
 
 	if len(modelUsers) < 1 {
 		err := errors.New("404")

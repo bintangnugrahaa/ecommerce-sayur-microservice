@@ -16,8 +16,9 @@ type UserEntity struct {
 }
 
 type QueryStringCustomer struct {
-	Search  string
-	Page    int64
-	Limit   int64
-	OrderBy string
+	Search    string
+	Page      int64
+	Limit     int64
+	OrderBy   string
+	OrderType string
 }
