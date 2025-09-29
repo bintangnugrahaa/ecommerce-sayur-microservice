@@ -22,7 +22,7 @@ type UserRepositoryInterface interface {
 	UpdateDataUser(ctx context.Context, req entity.UserEntity) error
 
 	// Modul Customers Admin
-	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, error)
+	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, int64, error)
 }
 
 type userRepository struct {
@@ -30,7 +30,7 @@ type userRepository struct {
 }
 
 // GetCustomerAll implements UserRepositoryInterface.
-func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, error) {
+func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, int64, error) {
 	modelUsers := []model.User{}
 	var countData int64
 
@@ -42,15 +42,20 @@ func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryS
 
 	if err := sqlMain.Model(&modelUsers).Count(&countData).Error; err != nil {
 		log.Errorf("[UserRepository-1] GetCustomerAll: %v", err)
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 
 	totalPage := int(math.Ceil(float64(countData) / float64(query.Limit)))
 
+	if err := sqlMain.Order(order).Limit(int(query.Limit)).Offset(int(offset)).Find(&modelUsers).Error; err != nil {
+		log.Errorf("[UserRepository-3] GetCustomerAll: %v", err)
+		return nil, 0, 0, err
+	}
+
 	if len(modelUsers) < 1 {
 		err := errors.New("404")
-		log.Infof("[UserRepository-1] GetCustomerAll: No Cutomer Found")
-		return nil, err
+		log.Infof("[UserRepository-4] GetCustomerAll: No Customer found")
+		return nil, 0, 0, err
 	}
 
 	respEntities := []entity.UserEntity{}
@@ -67,7 +72,7 @@ func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryS
 		})
 	}
 
-	panic("unimplemented")
+	return respEntities, countData, int64(totalPage), nil
 }
 
 // UpdateDataUser implements UserRepositoryInterface.

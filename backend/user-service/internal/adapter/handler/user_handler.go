@@ -11,6 +11,7 @@ import (
 	"user-service/internal/adapter/handler/response"
 	"user-service/internal/core/domain/entity"
 	"user-service/internal/core/service"
+	"user-service/utils/conv"
 
 	"github.com/google/martian/v3/log"
 	"github.com/labstack/echo/v4"
@@ -25,10 +26,99 @@ type UserHandlerInterface interface {
 	UpdatePassword(c echo.Context) error
 	GetProfileUser(c echo.Context) error
 	UpdateDataUser(c echo.Context) error
+
+	// Modul Customers Admin
+	GetCustomerAll(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// GetCustomerAll implements UserHandlerInterface.
+func (u *userHandler) GetCustomerAll(c echo.Context) error {
+	var (
+		resp     = response.DefaultResponseWithPaginations{}
+		ctx      = c.Request().Context()
+		respUser = []response.ProfileResponse{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] GetCustomerAll: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	search := c.QueryParam("search")
+	orderBy := c.QueryParam("order_by")
+	orderType := c.QueryParam("order_type")
+
+	pageStr := c.QueryParam("page")
+	var page int64 = 1
+	if pageStr != "" {
+		page, _ = conv.StringToInt64(pageStr)
+		if page <= 0 {
+			page = 1
+		}
+	}
+
+	limitStr := c.QueryParam("limit")
+	var limit int64 = 10
+	if limitStr != "" {
+		limit, _ = conv.StringToInt64(limitStr)
+		if limit <= 0 {
+			limit = 10
+		}
+	}
+
+	reqEntity := entity.QueryStringCustomer{
+		Search:    search,
+		Page:      page,
+		Limit:     limit,
+		OrderBy:   orderBy,
+		OrderType: orderType,
+	}
+
+	results, countData, totalPages, err := u.userService.GetCustomerAll(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-2] GetCustomerAll: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	for _, val := range results {
+		respUser = append(respUser, response.ProfileResponse{
+			ID:    val.ID,
+			Name:  val.Name,
+			Email: val.Email,
+			Photo: val.Photo,
+			Phone: val.Phone,
+		})
+	}
+
+	resp.Message = "Data retrieved successfully"
+	resp.Data = respUser
+	resp.Pagination = struct {
+		Page       int64 "json:\"page\""
+		TotalCount int64 "json:\"total_count\""
+		PerPage    int64 "json:\"per_page\""
+		TotalPage  int64 "json:\"total_page\""
+	}{
+		Page:       page,
+		TotalCount: countData,
+		PerPage:    limit,
+		TotalPage:  totalPages,
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // UpdateDataUser implements UserHandlerInterface.
@@ -440,6 +530,7 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 
 	mid := adapter.NewMiddlewareAdapter(cfg, jwtService)
 	adminGroup := e.Group("/admin", mid.CheckToken())
+	adminGroup.GET("/customers", userHandler.GetCustomerAll)
 	adminGroup.GET("/check", func(c echo.Context) error {
 		return c.String(200, "OK")
 	})
