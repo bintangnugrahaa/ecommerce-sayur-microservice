@@ -25,10 +25,84 @@ type UserRepositoryInterface interface {
 	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, int64, error)
 	GetCustomerByID(ctx context.Context, customerID int64) (*entity.UserEntity, error)
 	CreateCustomer(ctx context.Context, req entity.UserEntity) error
+	UpdateCustomer(ctx context.Context, req entity.UserEntity) error
+	DeleteCustomer(ctx context.Context, customerID int64) error
 }
 
 type userRepository struct {
 	db *gorm.DB
+}
+
+// DeleteCustomer implements UserRepositoryInterface.
+func (u *userRepository) DeleteCustomer(ctx context.Context, customerID int64) error {
+	modelUser := model.User{}
+	if err := u.db.Where("id =?", customerID).First(&modelUser).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[UserRepository-1] DeleteCustomer: User not found")
+			return err
+		}
+		log.Errorf("[UserRepository-2] DeleteCustomer: %v", err)
+		return err
+	}
+
+	if err := u.db.Delete(&modelUser).Error; err != nil {
+		log.Errorf("[UserRepository-3] DeleteCustomer: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// UpdateCustomer implements UserRepositoryInterface.
+func (u *userRepository) UpdateCustomer(ctx context.Context, req entity.UserEntity) error {
+	modelRole := model.Role{}
+
+	if err := u.db.Where("id =?", req.RoleID).First(&modelRole).Error; err != nil {
+		log.Fatalf("[UserRepository-1] UpdateCustomer: %v", err)
+		return err
+	}
+
+	modelUser := model.User{}
+	if err := u.db.Where("id =?", req.ID).First(&modelUser).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[UserRepository-2] UpdateCustomer: User not found")
+			return err
+		}
+		log.Errorf("[UserRepository-3] UpdateCustomer: %v", err)
+		return err
+	}
+
+	modelUser.Name = req.Name
+	modelUser.Email = req.Email
+	modelUser.Phone = req.Phone
+	modelUser.Roles = []model.Role{modelRole}
+	if req.Address != "" {
+		modelUser.Address = req.Address
+	}
+
+	if req.Lat != "" {
+		modelUser.Lat = req.Lat
+	}
+
+	if req.Lng != "" {
+		modelUser.Lng = req.Lng
+	}
+	if req.Photo != "" {
+		modelUser.Lat = req.Lat
+	}
+
+	if req.Password != "" {
+		modelUser.Password = req.Password
+	}
+
+	if err := u.db.Save(&modelUser).Error; err != nil {
+		log.Errorf("[UserRepository-4] UpdateCustomer: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // CreateCustomer implements UserRepositoryInterface.

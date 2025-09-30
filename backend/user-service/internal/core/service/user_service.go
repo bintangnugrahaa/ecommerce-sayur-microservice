@@ -30,6 +30,8 @@ type UserServiceInterface interface {
 	GetCustomerAll(ctx context.Context, query entity.QueryStringCustomer) ([]entity.UserEntity, int64, int64, error)
 	GetCustomerByID(ctx context.Context, customerID int64) (*entity.UserEntity, error)
 	CreateCustomer(ctx context.Context, req entity.UserEntity) error
+	UpdateCustomer(ctx context.Context, req entity.UserEntity) error
+	DeleteCustomer(ctx context.Context, customerID int64) error
 }
 
 type userService struct {
@@ -37,6 +39,45 @@ type userService struct {
 	cfg        *config.Config
 	jwtService JwtServiceInterface
 	repoToken  repository.VerificationTokenRepositoryInterface
+}
+
+// DeleteCustomer implements UserServiceInterface.
+func (u *userService) DeleteCustomer(ctx context.Context, customerID int64) error {
+	return u.repo.DeleteCustomer(ctx, customerID)
+}
+
+// UpdateCustomer implements UserServiceInterface.
+func (u *userService) UpdateCustomer(ctx context.Context, req entity.UserEntity) error {
+	passwordNoencrypt := ""
+	if req.Password != "" {
+		passwordNoencrypt = req.Password
+		password, err := conv.HashPassword(req.Password)
+		if err != nil {
+			log.Fatalf("[UserService-1] UpdateCustomer: %v", err)
+			return err
+		}
+
+		req.Password = password
+	}
+
+	err := u.repo.UpdateCustomer(ctx, req)
+	if err != nil {
+		log.Fatalf("[UserService-2] UpdateCustomer: %v", err)
+		return err
+	}
+
+	if passwordNoencrypt != "" {
+		messageparam := fmt.Sprintf("You're account has been updated. Please login use: \n Email: %s\nPassword: %s", req.Email, passwordNoencrypt)
+		err = message.PublishMessage(req.Email,
+			messageparam,
+			utils.NOTIF_EMAIL_UPDATE_CUSTOMER)
+		if err != nil {
+			log.Errorf("[UserService-3] UpdateCustomer: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CreateCustomer implements UserServiceInterface.

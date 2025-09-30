@@ -30,10 +30,216 @@ type UserHandlerInterface interface {
 	// Modul Customers Admin
 	GetCustomerAll(c echo.Context) error
 	GetCustomerByID(c echo.Context) error
+	CreateCustomer(c echo.Context) error
+	UpdateCustomer(c echo.Context) error
+	DeleteCustomer(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// DeleteCustomer implements UserHandlerInterface.
+func (u *userHandler) DeleteCustomer(c echo.Context) error {
+	var (
+		resp = response.DefaultResponseWithPaginations{}
+		ctx  = c.Request().Context()
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] DeleteCustomer: %s", "data token not found")
+		resp.Message = "data token not valid"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	idParamStr := c.Param("id")
+	if idParamStr == "" {
+		log.Infof("[UserHandler-2] DeleteCustomer: %s", "missing or invalid customer ID")
+		resp.Message = "missing or invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idParamStr)
+	if err != nil {
+		log.Infof("[UserHandler-3] DeleteCustomer: %s", "invalid customer ID")
+		resp.Message = "invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	err = u.userService.DeleteCustomer(ctx, id)
+	if err != nil {
+		log.Infof("[UserHandler-4] DeleteCustomer: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Customer not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "Customer deleted successfully"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
+}
+
+// CreateCustomer implements UserHandlerInterface.
+func (u *userHandler) CreateCustomer(c echo.Context) error {
+	var (
+		resp = response.DefaultResponseWithPaginations{}
+		ctx  = c.Request().Context()
+		req  = request.CustomerRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] CreateCustomer: %s", "data token not found")
+		resp.Message = "data token not valid"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	if err = c.Bind(&req); err != nil {
+		log.Errorf("[UserHandler-2] CreateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(&req); err != nil {
+		log.Errorf("[UserHandler-3] CreateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if req.Password != req.PasswordConfirmation {
+		log.Infof("[UserHandler-4] CreateCustomer: %s", "password and confirm password does not match")
+		resp.Message = "password and confirm password does not match"
+		resp.Data = nil
+		return c.JSON(http.StatusUnprocessableEntity, resp)
+	}
+
+	latString := strconv.FormatFloat(req.Lat, 'g', -1, 64)
+	lngString := strconv.FormatFloat(req.Lng, 'g', -1, 64)
+
+	reqEntity := entity.UserEntity{
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: req.Password,
+		Phone:    req.Phone,
+		Address:  req.Address,
+		Lat:      latString,
+		Lng:      lngString,
+		Photo:    req.Photo,
+		RoleID:   req.RoleID,
+	}
+
+	err = u.userService.CreateCustomer(ctx, reqEntity)
+	if err != nil {
+		log.Fatalf("[UserHandler-5] CreateCustomer: %v", err)
+		resp.Message = "failed to create customer"
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+
+	return c.JSON(http.StatusCreated, resp)
+}
+
+// UpdateCustomer implements UserHandlerInterface.
+func (u *userHandler) UpdateCustomer(c echo.Context) error {
+	var (
+		resp = response.DefaultResponseWithPaginations{}
+		ctx  = c.Request().Context()
+		req  = request.CustomerRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] UpdateCustomer: %s", "data token not found")
+		resp.Message = "data token not valid"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	if err = c.Bind(&req); err != nil {
+		log.Errorf("[UserHandler-2] UpdateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(&req); err != nil {
+		log.Errorf("[UserHandler-3] UpdateCustomer: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	latString := ""
+	lngString := ""
+	if req.Lat != 0 {
+		latString = strconv.FormatFloat(req.Lat, 'g', -1, 64)
+	}
+
+	if req.Lng != 0 {
+		lngString = strconv.FormatFloat(req.Lng, 'g', -1, 64)
+	}
+	phoneString := fmt.Sprintf("%d", req.Phone)
+
+	idParamStr := c.Param("id")
+	if idParamStr == "" {
+		log.Infof("[UserHandler-4] UpdateCustomer: %s", "missing or invalid customer ID")
+		resp.Message = "missing or invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idParamStr)
+	if err != nil {
+		log.Infof("[UserHandler-5] UpdateCustomer: %s", "invalid customer ID")
+		resp.Message = "invalid customer ID"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.UserEntity{
+		ID:       id,
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: req.Password,
+		Phone:    phoneString,
+		Address:  req.Address,
+		Lat:      latString,
+		Lng:      lngString,
+		Photo:    req.Photo,
+	}
+
+	err = u.userService.UpdateDataUser(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[UserHandler-6] UpdateCustomer: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Customer not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "Success"
+	resp.Data = nil
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetCustomerByID implements UserHandlerInterface.
@@ -593,7 +799,10 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	mid := adapter.NewMiddlewareAdapter(cfg, jwtService)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/customers", userHandler.GetCustomerAll)
+	adminGroup.POST("/customers", userHandler.CreateCustomer)
+	adminGroup.PUT("/customers/:id", userHandler.UpdateCustomer)
 	adminGroup.GET("/customers/:id", userHandler.GetCustomerByID)
+	adminGroup.DELETE("/customers/:id", userHandler.DeleteCustomer)
 	adminGroup.GET("/check", func(c echo.Context) error {
 		return c.String(200, "OK")
 	})
