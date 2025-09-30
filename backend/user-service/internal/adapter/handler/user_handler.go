@@ -13,9 +13,9 @@ import (
 	"user-service/internal/core/service"
 	"user-service/utils/conv"
 
-	"github.com/google/martian/v3/log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 )
 
 type UserHandlerInterface interface {
@@ -29,10 +29,72 @@ type UserHandlerInterface interface {
 
 	// Modul Customers Admin
 	GetCustomerAll(c echo.Context) error
+	GetCustomerByID(c echo.Context) error
 }
 
 type userHandler struct {
 	userService service.UserServiceInterface
+}
+
+// GetCustomerByID implements UserHandlerInterface.
+func (u *userHandler) GetCustomerByID(c echo.Context) error {
+	var (
+		resp     = response.DefaultResponseWithPaginations{}
+		ctx      = c.Request().Context()
+		respUser = response.CustomerResponse{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[UserHandler-1] GetCustomerByID: %s", "data token not found")
+		resp.Message = "data token not valid"
+		resp.Data = nil
+		return c.JSON(http.StatusUnauthorized, resp)
+	}
+
+	idParam := c.Param("id")
+	if idParam == "" {
+		log.Errorf("[UserHandler-2] GetCustomerByID: %s", "id invalid")
+		resp.Message = "id invalid"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		log.Errorf("[UserHandler-3] GetCustomerByID: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := u.userService.GetCustomerByID(ctx, id)
+	if err != nil {
+		log.Errorf("[UserHandler-4] GetCustomerByID: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Customer not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success get customer by id"
+	respUser.ID = result.ID
+	respUser.RoleID = result.RoleID
+	respUser.Name = result.Name
+	respUser.Email = result.Email
+	respUser.Phone = result.Phone
+	respUser.Address = result.Address
+	respUser.Photo = result.Photo
+	respUser.Lat = result.Lat
+	respUser.Lng = result.Lng
+
+	resp.Data = respUser
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetCustomerAll implements UserHandlerInterface.
@@ -531,12 +593,13 @@ func NewUserHandler(e *echo.Echo, userService service.UserServiceInterface, cfg 
 	mid := adapter.NewMiddlewareAdapter(cfg, jwtService)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/customers", userHandler.GetCustomerAll)
+	adminGroup.GET("/customers/:id", userHandler.GetCustomerByID)
 	adminGroup.GET("/check", func(c echo.Context) error {
 		return c.String(200, "OK")
 	})
 
 	authGroup := e.Group("/auth", mid.CheckToken())
-	adminGroup.GET("/profile", userHandler.GetProfileUser)
+	authGroup.GET("/profile", userHandler.GetProfileUser)
 	authGroup.PUT("/profile", userHandler.UpdateDataUser)
 
 	return userHandler
