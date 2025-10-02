@@ -198,15 +198,17 @@ func (u *userRepository) GetCustomerAll(ctx context.Context, query entity.QueryS
 
 	respEntities := []entity.UserEntity{}
 	for _, val := range modelUsers {
+		roleName := ""
+		for _, role := range val.Roles {
+			roleName = role.Name
+		}
 		respEntities = append(respEntities, entity.UserEntity{
-			ID:         val.ID,
-			Name:       val.Name,
-			Email:      val.Email,
-			RoleName:   val.Roles[0].Name,
-			Phone:      val.Email,
-			Photo:      val.Photo,
-			IsVerified: false,
-			Token:      "",
+			ID:       val.ID,
+			Name:     val.Name,
+			Email:    val.Email,
+			RoleName: roleName,
+			Phone:    val.Email,
+			Photo:    val.Photo,
 		})
 	}
 

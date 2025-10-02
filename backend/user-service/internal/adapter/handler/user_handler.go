@@ -150,6 +150,7 @@ func (u *userHandler) CreateCustomer(c echo.Context) error {
 
 	resp.Message = "success"
 	resp.Data = nil
+	resp.Pagination = nil
 
 	return c.JSON(http.StatusCreated, resp)
 }
@@ -299,6 +300,7 @@ func (u *userHandler) GetCustomerByID(c echo.Context) error {
 	respUser.Lng = result.Lng
 
 	resp.Data = respUser
+	resp.Pagination = nil
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -374,12 +376,7 @@ func (u *userHandler) GetCustomerAll(c echo.Context) error {
 
 	resp.Message = "Data retrieved successfully"
 	resp.Data = respUser
-	resp.Pagination = struct {
-		Page       int64 "json:\"page\""
-		TotalCount int64 "json:\"total_count\""
-		PerPage    int64 "json:\"per_page\""
-		TotalPage  int64 "json:\"total_page\""
-	}{
+	resp.Pagination = &response.Pagination{
 		Page:       page,
 		TotalCount: countData,
 		PerPage:    limit,
