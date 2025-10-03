@@ -427,8 +427,6 @@ func (u *userHandler) UpdateDataUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, resp)
 	}
 
-	latString := strconv.FormatFloat(req.Lat, 'g', -1, 64)
-	lngString := strconv.FormatFloat(req.Lng, 'g', -1, 64)
 	phoneString := fmt.Sprintf("%d", req.Phone)
 
 	reqEntity := entity.UserEntity{
@@ -436,8 +434,8 @@ func (u *userHandler) UpdateDataUser(c echo.Context) error {
 		Name:    req.Name,
 		Email:   req.Email,
 		Address: req.Address,
-		Lat:     latString,
-		Lng:     lngString,
+		Lat:     req.Lat,
+		Lng:     req.Lng,
 		Phone:   phoneString,
 		Photo:   req.Photo,
 	}
