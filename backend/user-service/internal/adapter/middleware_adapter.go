@@ -27,7 +27,7 @@ func (m *middlewareAdapter) CheckToken() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			respErr := response.DefaultResponse{}
-			redisConn := config.NewRedisClient()
+			redisConn := config.NewConfig().NewRedisClient()
 			authHeader := c.Request().Header.Get("Authorization")
 
 			if authHeader == "" {

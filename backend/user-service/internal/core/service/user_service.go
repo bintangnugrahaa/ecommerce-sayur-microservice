@@ -193,7 +193,7 @@ func (u *userService) VerifyToken(ctx context.Context, token string) (*entity.Us
 		return nil, err
 	}
 
-	redisConn := config.NewRedisClient()
+	redisConn := config.NewConfig().NewRedisClient()
 	err = redisConn.Set(ctx, token, jsonData, time.Hour*23).Err()
 	if err != nil {
 		log.Errorf("[UserService-4] VerifyToken: %v", err)
@@ -300,7 +300,7 @@ func (u *userService) SignIn(ctx context.Context, req entity.UserEntity) (*entit
 		return nil, "", err
 	}
 
-	redisConn := config.NewRedisClient()
+	redisConn := config.NewConfig().NewRedisClient()
 	err = redisConn.Set(ctx, token, jsonData, time.Hour*23).Err()
 	if err != nil {
 		log.Errorf("[UserService-4] SignIn: %v", err)
