@@ -14,10 +14,40 @@ import (
 
 type CategoryRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity) ([]entity.CategoryEntity, int64, int64, error)
+	GetByID(ctx context.Context, categoryID int64) (*entity.CategoryEntity, error)
 }
 
 type categoryRepository struct {
 	db *gorm.DB
+}
+
+// GetByID implements CategoryRepositoryInterface.
+func (c *categoryRepository) GetByID(ctx context.Context, categoryID int64) (*entity.CategoryEntity, error) {
+	modelCategory := model.Category{}
+	if err := c.db.Where("id = ?", categoryID).First(&modelCategory).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[CategoryRepository-1] GetByID: Category not found")
+			return nil, err
+		}
+		log.Errorf("[CategoryRepository-2] GetByID: %v", err)
+		return nil, err
+	}
+
+	status := "Published"
+	if modelCategory.Status == false {
+		status = "Unpublished"
+	}
+
+	return &entity.CategoryEntity{
+		ID:          categoryID,
+		ParentID:    modelCategory.ParentID,
+		Name:        modelCategory.Name,
+		Icon:        modelCategory.Icon,
+		Status:      status,
+		Slug:        modelCategory.Slug,
+		Description: modelCategory.Description,
+	}, nil
 }
 
 // GetAll implements CategoryRepositoryInterface.
