@@ -10,3 +10,11 @@ type CategoryEntity struct {
 	Description string          `json:"description"`
 	Products    []ProductEntity `json:"products"`
 }
+
+type QueryStringEntity struct {
+	Search    string
+	Page      int
+	Limit     int
+	OrderBy   string
+	OrderType string
+}
