@@ -15,10 +15,125 @@ import (
 type CategoryRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity) ([]entity.CategoryEntity, int64, int64, error)
 	GetByID(ctx context.Context, categoryID int64) (*entity.CategoryEntity, error)
+	GetBySlug(ctx context.Context, slug string) (*entity.CategoryEntity, error)
+	CreateCategory(ctx context.Context, req entity.CategoryEntity) error
+	EditCategory(ctx context.Context, req entity.CategoryEntity) error
+	DeleteCategory(ctx context.Context, categoryID int64) error
 }
 
 type categoryRepository struct {
 	db *gorm.DB
+}
+
+// DeleteCategory implements CategoryRepositoryInterface.
+func (c *categoryRepository) DeleteCategory(ctx context.Context, categoryID int64) error {
+	modelCategory := model.Category{}
+
+	if err := c.db.Preload("Products").Where("id = ?", categoryID).First(&modelCategory).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[CategoryRepository-1] DeleteCategory: Category not found")
+			return err
+		}
+		log.Errorf("[CategoryRepository-2] DeleteCategory: %v", err)
+		return err
+	}
+
+	if len(modelCategory.Products) > 0 {
+		err := errors.New("304")
+		log.Errorf("[CategoryRepository-3] DeleteCategory: %v", "Category using other products")
+		return err
+	}
+
+	if err := c.db.Delete(&modelCategory).Error; err != nil {
+		log.Errorf("[CategoryRepository-4] DeleteCategory: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// EditCategory implements CategoryRepositoryInterface.
+func (c *categoryRepository) EditCategory(ctx context.Context, req entity.CategoryEntity) error {
+	modelCategory := model.Category{}
+
+	if err := c.db.Where("id = ?", req.ID).First(&modelCategory).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[CategoryRepository-1] EditCategory: Category not found")
+			return err
+		}
+		log.Errorf("[CategoryRepository-2] EditCategory: %v", err)
+		return err
+	}
+
+	status := true
+	if req.Status == "Unpublished" {
+		status = false
+	}
+	modelCategory.ParentID = req.ParentID
+	modelCategory.Name = req.Name
+	modelCategory.Icon = req.Icon
+	modelCategory.Status = status
+	modelCategory.Slug = req.Slug
+	modelCategory.Description = req.Description
+	if err := c.db.Save(&modelCategory).Error; err != nil {
+		log.Errorf("[CategoryRepository-3] EditCategory: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// CreateCategory implements CategoryRepositoryInterface.
+func (c *categoryRepository) CreateCategory(ctx context.Context, req entity.CategoryEntity) error {
+	status := true
+	if req.Status == "Unpublished" {
+		status = false
+	}
+	modelCategory := model.Category{
+		ParentID:    req.ParentID,
+		Name:        req.Name,
+		Icon:        req.Icon,
+		Status:      status,
+		Slug:        req.Slug,
+		Description: req.Description,
+	}
+
+	if err := c.db.Create(&modelCategory).Error; err != nil {
+		log.Errorf("[CategoryRepository-1] CreateCategory: %v", err)
+		return err
+	}
+	return nil
+}
+
+// GetBySlug implements CategoryRepositoryInterface.
+func (c *categoryRepository) GetBySlug(ctx context.Context, slug string) (*entity.CategoryEntity, error) {
+	modelCategory := model.Category{}
+	if err := c.db.Where("slug =?", slug).First(&modelCategory).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+			log.Infof("[CategoryRepository-1] GetBySlug: Category not found")
+			return nil, err
+		}
+		log.Errorf("[CategoryRepository-2] GetBySlug: %v", err)
+		return nil, err
+	}
+
+	status := "Published"
+	if modelCategory.Status == false {
+		status = "Unpublished"
+	}
+
+	return &entity.CategoryEntity{
+		ID:          modelCategory.ID,
+		ParentID:    modelCategory.ParentID,
+		Name:        modelCategory.Name,
+		Icon:        modelCategory.Icon,
+		Status:      status,
+		Slug:        modelCategory.Slug,
+		Description: modelCategory.Description,
+	}, nil
 }
 
 // GetByID implements CategoryRepositoryInterface.
