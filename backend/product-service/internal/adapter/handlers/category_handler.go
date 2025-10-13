@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"product-service/config"
+	"product-service/internal/adapter/handlers/request"
 	"product-service/internal/adapter/handlers/response"
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/service"
@@ -16,20 +17,254 @@ type CategoryHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
 	GetByIDAdmin(c echo.Context) error
 	GetBySlugAdmin(c echo.Context) error
+	Create(c echo.Context) error
+	Update(c echo.Context) error
+	Delete(c echo.Context) error
 }
 
 type categoryHandler struct {
 	categoryService service.CategoryServiceInterface
 }
 
+// Create implements CategoryHandlerInterface.
+func (ch *categoryHandler) Create(c echo.Context) error {
+	var (
+		resp    = response.DefaultResponse{}
+		ctx     = c.Request().Context()
+		request = request.CreateCategoryRequest{}
+	)
+
+	if err := c.Bind(&request); err != nil {
+		log.Errorf("[CategoryHandler-1] Create: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err := c.Validate(request); err != nil {
+		log.Errorf("[CategoryHandler-2] Create: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.CategoryEntity{
+		Name:        request.Name,
+		Icon:        request.Icon,
+		Description: request.Description,
+		Status:      request.Status,
+		ParentID:    request.ParentID,
+	}
+
+	err := ch.categoryService.CreateCategory(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[CategoryHandler-3] Create: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusCreated, resp)
+}
+
+// Delete implements CategoryHandlerInterface.
+func (ch *categoryHandler) Delete(c echo.Context) error {
+	var (
+		resp = response.DefaultResponse{}
+		ctx  = c.Request().Context()
+	)
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[CategoryHandler-1] Delete: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] Delete: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	err = ch.categoryService.DeleteCategory(ctx, id)
+	if err != nil {
+		log.Errorf("[CategoryHandler-3] Delete: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Category not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
+}
+
+// Update implements CategoryHandlerInterface.
+func (ch *categoryHandler) Update(c echo.Context) error {
+	var (
+		resp    = response.DefaultResponse{}
+		ctx     = c.Request().Context()
+		request = request.CreateCategoryRequest{}
+	)
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[CategoryHandler-1] Update: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] Update: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Bind(&request); err != nil {
+		log.Errorf("[CategoryHandler-3] Update: %v", "Invalid id")
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err = c.Validate(request); err != nil {
+		log.Errorf("[CategoryHandler-4] Update: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.CategoryEntity{
+		ID:          id,
+		Name:        request.Name,
+		Icon:        request.Icon,
+		Description: request.Description,
+		Status:      request.Status,
+		ParentID:    request.ParentID,
+	}
+
+	err = ch.categoryService.EditCategory(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[CategoryHandler-5] Update: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Category not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
+}
+
 // GetBySlugAdmin implements CategoryHandlerInterface.
 func (ch *categoryHandler) GetBySlugAdmin(c echo.Context) error {
-	panic("unimplemented")
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = response.CategoryDetailResponse{}
+	)
+
+	slug := c.Param("slug")
+	if slug == "" {
+		log.Errorf("[CategoryHandler-1] GetBySlugAdmin: %v", "invalid slug")
+		resp.Message = "Slug is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := ch.categoryService.GetBySlug(ctx, slug)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] GetBySlugAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	respCategories = response.CategoryDetailResponse{
+		ID:          result.ID,
+		Name:        result.Name,
+		Slug:        result.Slug,
+		Icon:        result.Icon,
+		Status:      result.Status,
+		Description: result.Description,
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetByIDAdmin implements CategoryHandlerInterface.
 func (ch *categoryHandler) GetByIDAdmin(c echo.Context) error {
-	panic("unimplemented")
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = response.CategoryDetailResponse{}
+	)
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[CategoryHandler-1] GetByIDAdmin: %v", "invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[CategoryHandler-2] GetByIDAdmin: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := ch.categoryService.GetByID(ctx, id)
+	if err != nil {
+		log.Errorf("[CategoryHandler-3] GetByIDAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	respCategories = response.CategoryDetailResponse{
+		ID:          result.ID,
+		Name:        result.Name,
+		Slug:        result.Slug,
+		Icon:        result.Icon,
+		Status:      result.Status,
+		Description: result.Description,
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetAllAdmin implements CategoryHandlerInterface.
@@ -116,6 +351,11 @@ func NewCategoryHandler(e *echo.Echo, categoryService service.CategoryServiceInt
 
 	adminGroup := e.Group("/admin")
 	adminGroup.GET("/categories", category.GetAllAdmin)
+	adminGroup.GET("/categories/:id", category.GetByIDAdmin)
+	adminGroup.GET("/categories/:slug/slug", category.GetBySlugAdmin)
+	adminGroup.POST("/categories", category.Create)
+	adminGroup.PUT("/categories/:id", category.Update)
+	adminGroup.DELETE("/categories/:id", category.Delete)
 
 	return category
 }
