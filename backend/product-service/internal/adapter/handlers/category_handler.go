@@ -3,12 +3,14 @@ package handlers
 import (
 	"net/http"
 	"product-service/config"
+	"product-service/internal/adapter"
 	"product-service/internal/adapter/handlers/request"
 	"product-service/internal/adapter/handlers/response"
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/service"
 	"product-service/utils/conv"
 
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -349,7 +351,9 @@ func (ch *categoryHandler) GetAllAdmin(c echo.Context) error {
 func NewCategoryHandler(e *echo.Echo, categoryService service.CategoryServiceInterface, cfg *config.Config) CategoryHandlerInterface {
 	category := &categoryHandler{categoryService: categoryService}
 
-	adminGroup := e.Group("/admin")
+	e.Use(middleware.Recover())
+	mid := adapter.NewMiddlewareAdapter(cfg)
+	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/categories", category.GetAllAdmin)
 	adminGroup.GET("/categories/:id", category.GetByIDAdmin)
 	adminGroup.GET("/categories/:slug/slug", category.GetBySlugAdmin)
