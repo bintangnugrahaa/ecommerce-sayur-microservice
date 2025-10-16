@@ -23,4 +23,5 @@ type Product struct {
 	CreatedAt    time.Time      `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	UpdatedAt    *time.Time     `gorm:"column:updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at;index"`
+	Category     Category       `gorm:"foreignKey:CategorySlug;references:Slug"`
 }

@@ -121,7 +121,7 @@ func (c *categoryRepository) GetBySlug(ctx context.Context, slug string) (*entit
 	}
 
 	status := "Published"
-	if modelCategory.Status == false {
+	if !modelCategory.Status {
 		status = "Unpublished"
 	}
 
@@ -150,7 +150,7 @@ func (c *categoryRepository) GetByID(ctx context.Context, categoryID int64) (*en
 	}
 
 	status := "Published"
-	if modelCategory.Status == false {
+	if !modelCategory.Status {
 		status = "Unpublished"
 	}
 
@@ -205,7 +205,7 @@ func (c *categoryRepository) GetAll(ctx context.Context, query entity.QueryStrin
 			})
 		}
 		status := "Published"
-		if val.Status == false {
+		if !val.Status {
 			status = "Unpublished"
 		}
 
