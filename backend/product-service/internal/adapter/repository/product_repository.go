@@ -15,10 +15,61 @@ import (
 type ProductRepositoryInterface interface {
 	GetAll(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
 	GetByID(ctx context.Context, productID int64) (*entity.ProductEntity, error)
+	Create(ctx context.Context, req entity.ProductEntity) error
 }
 
 type productRepository struct {
 	db *gorm.DB
+}
+
+// Create implements ProductRepositoryInterface.
+func (p *productRepository) Create(ctx context.Context, req entity.ProductEntity) error {
+	modelProduct := model.Product{
+		CategorySlug: req.CategorySlug,
+		ParentID:     req.ParentID,
+		Name:         req.Name,
+		Image:        req.Image,
+		Description:  req.Description,
+		RegulerPrice: req.RegulerPrice,
+		SalePrice:    req.SalePrice,
+		Unit:         req.Unit,
+		Weight:       req.Weight,
+		Stock:        req.Stock,
+		Variant:      req.Variant,
+		Status:       req.Status,
+	}
+
+	if err := p.db.Create(&modelProduct).Error; err != nil {
+		log.Errorf("[ProductRepository-1] Create: %v", err)
+		return err
+	}
+
+	if len(req.Child) > 0 {
+		modelProductChild := []model.Product{}
+		for _, val := range req.Child {
+			modelProductChild = append(modelProductChild, model.Product{
+				CategorySlug: req.CategorySlug,
+				ParentID:     &modelProduct.ID,
+				Name:         req.Name,
+				Image:        val.Image,
+				Description:  req.Description,
+				RegulerPrice: val.RegulerPrice,
+				SalePrice:    val.SalePrice,
+				Unit:         req.Unit,
+				Weight:       val.Weight,
+				Stock:        val.Stock,
+				Variant:      req.Variant,
+				Status:       req.Status,
+			})
+		}
+
+		if err := p.db.Create(&modelProductChild).Error; err != nil {
+			log.Errorf("[ProductRepository-2] Create: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetByID implements ProductRepositoryInterface.
