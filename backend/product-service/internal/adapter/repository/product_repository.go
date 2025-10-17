@@ -16,10 +16,95 @@ type ProductRepositoryInterface interface {
 	GetAll(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
 	GetByID(ctx context.Context, productID int64) (*entity.ProductEntity, error)
 	Create(ctx context.Context, req entity.ProductEntity) error
+	Update(ctx context.Context, req entity.ProductEntity) error
+	Delete(ctx context.Context, productID int64) error
 }
 
 type productRepository struct {
 	db *gorm.DB
+}
+
+// Delete implements ProductRepositoryInterface.
+func (p *productRepository) Delete(ctx context.Context, productID int64) error {
+	modelProduct := model.Product{}
+
+	if err := p.db.WithContext(ctx).Preload("Childs").First(&modelProduct, "id = ?", productID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+		}
+		log.Errorf("[ProductRepository-1] Delete: %v", err)
+		return err
+	}
+
+	if err := p.db.WithContext(ctx).Select("Childs").Delete(&modelProduct).Error; err != nil {
+		log.Errorf("[ProductRepository-2] Delete: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Update implements ProductRepositoryInterface.
+func (p *productRepository) Update(ctx context.Context, req entity.ProductEntity) error {
+	modelProduct := model.Product{}
+
+	if err := p.db.Where("id = ?", req.ID).First(&modelProduct).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = errors.New("404")
+		}
+		log.Errorf("[ProductRepository-1] Update: %v", err)
+		return err
+	}
+
+	modelProduct.CategorySlug = req.CategorySlug
+	modelProduct.ParentID = req.ParentID
+	modelProduct.Name = req.Name
+	modelProduct.Image = req.Image
+	modelProduct.Description = req.Description
+	modelProduct.RegulerPrice = req.RegulerPrice
+	modelProduct.SalePrice = req.SalePrice
+	modelProduct.Unit = req.Unit
+	modelProduct.Weight = req.Weight
+	modelProduct.Stock = req.Stock
+	modelProduct.Variant = req.Variant
+	modelProduct.Status = req.Status
+
+	if err := p.db.Save(&modelProduct).Error; err != nil {
+		log.Errorf("[ProductRepository-2] Update: %v", err)
+		return err
+	}
+
+	if len(req.Child) > 0 {
+		if err := p.db.Where("parent_id = ?", modelProduct.ID).Delete(&model.Product{}).Error; err != nil {
+			log.Errorf("[ProductRepository-3] Update: %v", err)
+			return err
+		}
+
+		modelProductChild := []model.Product{}
+		for _, val := range req.Child {
+			modelProductChild = append(modelProductChild, model.Product{
+				CategorySlug: req.CategorySlug,
+				ParentID:     &modelProduct.ID,
+				Name:         req.Name,
+				Image:        val.Image,
+				Description:  req.Description,
+				RegulerPrice: val.RegulerPrice,
+				SalePrice:    val.SalePrice,
+				Unit:         req.Unit,
+				Weight:       val.Weight,
+				Stock:        val.Stock,
+				Variant:      req.Variant,
+				Status:       req.Status,
+			})
+		}
+
+		if err := p.db.Create(&modelProductChild).Error; err != nil {
+			log.Errorf("[ProductRepository-3] Update: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Create implements ProductRepositoryInterface.
