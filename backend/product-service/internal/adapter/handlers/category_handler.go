@@ -10,8 +10,8 @@ import (
 	"product-service/internal/core/service"
 	"product-service/utils/conv"
 
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 )
 
