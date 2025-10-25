@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"product-service/config"
 	"product-service/internal/adapter"
+	"product-service/internal/adapter/handlers/request"
 	"product-service/internal/adapter/handlers/response"
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/service"
@@ -17,10 +18,59 @@ import (
 type ProductHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
 	GetByIDAdmin(c echo.Context) error
+	CreateAdmin(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// CreateAdmin implements ProductHandlerInterface.
+func (p *productHandler) CreateAdmin(c echo.Context) error {
+	var (
+		resp = response.DefaultResponse{}
+		ctx  = c.Request().Context()
+		req  = request.ProductRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[ProductHandler-1] CreateAdmin: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	if err := c.Bind(&req); err != nil {
+		log.Errorf("[ProductHandler-2] CreateAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err := c.Validate(req); err != nil {
+		log.Errorf("[ProductHandler-3] CreateAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.ProductEntity{
+		CategorySlug: req.CategorySlug,
+		ParentID:     nil,
+		Name:         req.ProductName,
+		Image:        req.VariantDetail[0].ProductImage,
+		Description:  req.ProductDescription,
+		RegulerPrice: float64(req.VariantDetail[0].RegulerPrice),
+		SalePrice:    float64(req.VariantDetail[0].SalePrice),
+		Unit:         req.Unit,
+		Weight:       req.VariantDetail[0].Weight,
+		Stock:        req.VariantDetail[0].Stock,
+		Variant:      req.Variant,
+		Status:       req.Status,
+	}
+
+	panic("unimplemented")
 }
 
 // GetByIDAdmin implements ProductHandlerInterface.
@@ -82,19 +132,19 @@ func (p *productHandler) GetByIDAdmin(c echo.Context) error {
 	}
 
 	respProduct = response.ProductDetailResponse{
-		ID:                 result.ID,
-		ProductName:        result.Name,
-		ParentID:           *result.ParentID,
-		ProductImage:       result.Image,
-		CategoryName:       result.CategoryName,
-		ProductStatus:      result.Status,
-		SalePrice:          int64(result.SalePrice),
-		RegulerPrice:       int64(result.RegulerPrice),
-		Unit:               result.Unit,
-		Weight:             result.Weight,
-		Stock:              result.Stock,
-		CreatedAt:          result.CreatedAt,
-		Child:              responseChilds,
+		ID:            result.ID,
+		ProductName:   result.Name,
+		ParentID:      *result.ParentID,
+		ProductImage:  result.Image,
+		CategoryName:  result.CategoryName,
+		ProductStatus: result.Status,
+		SalePrice:     int64(result.SalePrice),
+		RegulerPrice:  int64(result.RegulerPrice),
+		Unit:          result.Unit,
+		Weight:        result.Weight,
+		Stock:         result.Stock,
+		CreatedAt:     result.CreatedAt,
+		Child:         responseChilds,
 	}
 
 	resp.Message = "success"
