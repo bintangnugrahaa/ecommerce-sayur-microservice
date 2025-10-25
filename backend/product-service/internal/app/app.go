@@ -27,8 +27,10 @@ func RunServer() {
 	}
 
 	categoryRepo := repository.NewCategoryRepository(db.DB)
+	prodyctRepo := repository.NewProductRepository(db.DB)
 
 	categoryService := service.NewCategoryService(categoryRepo)
+	productService := service.NewProductService(prodyctRepo)
 
 	e := echo.New()
 	e.Use(middleware.CORS())
@@ -42,6 +44,7 @@ func RunServer() {
 	})
 
 	handlers.NewCategoryHandler(e, categoryService, cfg)
+	handlers.NewProductHandler(e, cfg, productService)
 
 	go func() {
 		if cfg.App.AppPort == "" {

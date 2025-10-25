@@ -16,10 +16,90 @@ import (
 
 type ProductHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
+	GetByIDAdmin(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// GetByIDAdmin implements ProductHandlerInterface.
+func (p *productHandler) GetByIDAdmin(c echo.Context) error {
+	var (
+		resp        = response.DefaultResponse{}
+		ctx         = c.Request().Context()
+		respProduct = response.ProductDetailResponse{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[ProductHandler-1] GetByIDAdmin: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[ProductHandler-2] GetByIDAdmin: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[ProductHandler-3] GetByIDAdmin: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := p.service.GetByID(ctx, id)
+	if err != nil {
+		log.Errorf("[ProductHandler-4] GetByIDAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	responseChilds := []response.ProductChildResponse{}
+	if len(result.Child) > 0 {
+		for _, child := range result.Child {
+			responseChilds = append(responseChilds, response.ProductChildResponse{
+				ID:           child.ID,
+				SalePrice:    int64(child.SalePrice),
+				RegulerPrice: int64(child.RegulerPrice),
+				Weight:       child.Weight,
+				Stock:        child.Stock,
+			})
+		}
+	}
+
+	respProduct = response.ProductDetailResponse{
+		ID:                 result.ID,
+		ProductName:        result.Name,
+		ParentID:           *result.ParentID,
+		ProductImage:       result.Image,
+		CategoryName:       result.CategoryName,
+		ProductStatus:      result.Status,
+		SalePrice:          int64(result.SalePrice),
+		RegulerPrice:       int64(result.RegulerPrice),
+		Unit:               result.Unit,
+		Weight:             result.Weight,
+		Stock:              result.Stock,
+		CreatedAt:          result.CreatedAt,
+		Child:              responseChilds,
+	}
+
+	resp.Message = "success"
+	resp.Data = respProduct
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetAllAdmin implements ProductHandlerInterface.
@@ -122,6 +202,7 @@ func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.Product
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/products", product.GetAllAdmin)
+	adminGroup.GET("/products/:id", product.GetByIDAdmin)
 
 	return product
 }
