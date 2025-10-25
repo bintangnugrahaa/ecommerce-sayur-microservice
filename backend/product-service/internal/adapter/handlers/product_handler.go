@@ -19,10 +19,151 @@ type ProductHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
 	GetByIDAdmin(c echo.Context) error
 	CreateAdmin(c echo.Context) error
+	EditAdmin(c echo.Context) error
+	DeleteAdmin(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// DeleteAdmin implements ProductHandlerInterface.
+func (p *productHandler) DeleteAdmin(c echo.Context) error {
+	var (
+		resp = response.DefaultResponse{}
+		ctx  = c.Request().Context()
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[ProductHandler-1] DeleteAdmin: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[ProductHandler-2] DeleteAdmin: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[ProductHandler-3] DeleteAdmin: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	err = p.service.Delete(ctx, id)
+	if err != nil {
+		log.Errorf("[ProductHandler-4] DeleteAdmin: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
+}
+
+// EditAdmin implements ProductHandlerInterface.
+func (p *productHandler) EditAdmin(c echo.Context) error {
+	var (
+		resp = response.DefaultResponse{}
+		ctx  = c.Request().Context()
+		req  = request.ProductRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[ProductHandler-1] EditAdmin: %s", "data token not found")
+		resp.Message = "data token not found"
+		resp.Data = nil
+		return c.JSON(http.StatusNotFound, resp)
+	}
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[ProductHandler-2] EditAdmin: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[ProductHandler-3] EditAdmin: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err := c.Bind(&req); err != nil {
+		log.Errorf("[ProductHandler-4] EditAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	if err := c.Validate(req); err != nil {
+		log.Errorf("[ProductHandler-3] CreateAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	reqEntity := entity.ProductEntity{
+		ID:           id,
+		CategorySlug: req.CategorySlug,
+		ParentID:     nil,
+		Name:         req.ProductName,
+		Image:        req.VariantDetail[0].ProductImage,
+		Description:  req.ProductDescription,
+		RegulerPrice: float64(req.VariantDetail[0].RegulerPrice),
+		SalePrice:    float64(req.VariantDetail[0].SalePrice),
+		Unit:         req.Unit,
+		Weight:       req.VariantDetail[0].Weight,
+		Stock:        req.VariantDetail[0].Stock,
+		Variant:      req.Variant,
+		Status:       req.Status,
+	}
+
+	productChilds := []entity.ProductEntity{}
+	if len(req.VariantDetail) > 1 {
+		for i := 1; i < len(req.VariantDetail); i++ {
+			productChilds = append(productChilds, entity.ProductEntity{
+				Image:        req.VariantDetail[i].ProductImage,
+				RegulerPrice: float64(req.VariantDetail[i].RegulerPrice),
+				SalePrice:    float64(req.VariantDetail[i].SalePrice),
+				Weight:       req.VariantDetail[i].Weight,
+				Stock:        req.VariantDetail[i].Stock,
+			})
+		}
+
+		reqEntity.Child = productChilds
+	}
+
+	err = p.service.Update(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[ProductHandler-4] EditAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusOK, resp)
 }
 
 // CreateAdmin implements ProductHandlerInterface.
@@ -70,7 +211,32 @@ func (p *productHandler) CreateAdmin(c echo.Context) error {
 		Status:       req.Status,
 	}
 
-	panic("unimplemented")
+	productChilds := []entity.ProductEntity{}
+	if len(req.VariantDetail) > 1 {
+		for i := 1; i < len(req.VariantDetail); i++ {
+			productChilds = append(productChilds, entity.ProductEntity{
+				Image:        req.VariantDetail[i].ProductImage,
+				RegulerPrice: float64(req.VariantDetail[i].RegulerPrice),
+				SalePrice:    float64(req.VariantDetail[i].SalePrice),
+				Weight:       req.VariantDetail[i].Weight,
+				Stock:        req.VariantDetail[i].Stock,
+			})
+		}
+
+		reqEntity.Child = productChilds
+	}
+
+	err := p.service.Create(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[ProductHandler-4] CreateAdmin: %v", err)
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Message = "success"
+	resp.Data = nil
+	return c.JSON(http.StatusCreated, resp)
 }
 
 // GetByIDAdmin implements ProductHandlerInterface.
@@ -252,7 +418,10 @@ func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.Product
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/products", product.GetAllAdmin)
+	adminGroup.POST("/products", product.CreateAdmin)
 	adminGroup.GET("/products/:id", product.GetByIDAdmin)
+	adminGroup.PUT("/products/:id", product.EditAdmin)
+	adminGroup.DELETE("/products/:id", product.DeleteAdmin)
 
 	return product
 }
