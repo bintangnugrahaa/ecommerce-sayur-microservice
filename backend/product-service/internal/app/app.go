@@ -8,6 +8,7 @@ import (
 	"product-service/config"
 	"product-service/internal/adapter/handlers"
 	"product-service/internal/adapter/repository"
+	"product-service/internal/adapter/storage"
 	"product-service/internal/core/service"
 	"product-service/utils/validator"
 	"syscall"
@@ -25,6 +26,8 @@ func RunServer() {
 		log.Fatalf("[RunServer-1] %v", err)
 		return
 	}
+
+	storageHandler := storage.NewSupabase(cfg)
 
 	categoryRepo := repository.NewCategoryRepository(db.DB)
 	prodyctRepo := repository.NewProductRepository(db.DB)
@@ -45,6 +48,7 @@ func RunServer() {
 
 	handlers.NewCategoryHandler(e, categoryService, cfg)
 	handlers.NewProductHandler(e, cfg, productService)
+	handlers.NewUploadImage(e, cfg, storageHandler)
 
 	go func() {
 		if cfg.App.AppPort == "" {

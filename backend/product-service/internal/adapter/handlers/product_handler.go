@@ -300,7 +300,7 @@ func (p *productHandler) GetByIDAdmin(c echo.Context) error {
 	respProduct = response.ProductDetailResponse{
 		ID:            result.ID,
 		ProductName:   result.Name,
-		ParentID:      *result.ParentID,
+		ParentID:      conv.Int64PointerToInt64(result.ParentID),
 		ProductImage:  result.Image,
 		CategoryName:  result.CategoryName,
 		ProductStatus: result.Status,
@@ -392,7 +392,7 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 		respProducts = append(respProducts, response.ProductListResponse{
 			ID:            product.ID,
 			ProductName:   product.Name,
-			ParentID:      *product.ParentID,
+			ParentID:      conv.Int64PointerToInt64(product.ParentID),
 			ProductImage:  product.Image,
 			CategoryName:  product.CategoryName,
 			ProductStatus: product.Status,
@@ -402,11 +402,13 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 	}
 
 	resp.Data = respProducts
-
-	resp.Pagination.TotalCount = totalData
-	resp.Pagination.TotalPage = totalPage
-	resp.Pagination.Page = page
-	resp.Pagination.PerPage = perPage
+	resp.Message = "success"
+	resp.Pagination = &response.Pagination{
+		Page:       page,
+		TotalCount: totalData,
+		TotalPage:  totalPage,
+		PerPage:    perPage,
+	}
 
 	return c.JSON(http.StatusOK, resp)
 }

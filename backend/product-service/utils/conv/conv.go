@@ -20,3 +20,10 @@ func StringToInt64(s string) (int64, error) {
 
 	return newData, nil
 }
+
+func Int64PointerToInt64(num *int64) int64 {
+	if num != nil {
+		return *num
+	}
+	return 0
+}
