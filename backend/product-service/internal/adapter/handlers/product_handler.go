@@ -9,6 +9,7 @@ import (
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/service"
 	"product-service/utils/conv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -23,10 +24,93 @@ type ProductHandlerInterface interface {
 	DeleteAdmin(c echo.Context) error
 
 	GetAllHome(c echo.Context) error
+	GetAllShop(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// GetAllShop implements ProductHandlerInterface.
+func (p *productHandler) GetAllShop(c echo.Context) error {
+	var (
+		resp      = response.DefaultResponseWithPaginations{}
+		ctx       = c.Request().Context()
+		respLists = []response.ProductHomeListResponse{}
+	)
+
+	orderBy := "created_at"
+	if c.QueryParam("orderBy") != "" {
+		orderBy = c.QueryParam("orderBy")
+	}
+	orderType := "desc"
+	if c.QueryParam("orderType") != "" {
+		orderType = c.QueryParam("orderType")
+	}
+	var page int64 = 1
+	if c.QueryParam("page") != "" {
+		page, _ = conv.StringToInt64(c.QueryParam("page"))
+	}
+	var perPage int64 = 5
+	if c.QueryParam("limit") != "" {
+		perPage, _ = conv.StringToInt64(c.QueryParam("perPage"))
+	}
+
+	var startPrice int64 = 0
+	var endPrice int64 = 0
+	if c.QueryParam("price") != "" {
+		price := strings.Split(c.QueryParam("price"), " - ")
+		startPrice, _ = conv.StringToInt64(price[0])
+		endPrice, _ = conv.StringToInt64(price[1])
+	}
+
+	reqEntity := entity.QueryStringProduct{
+		OrderBy:    orderBy,
+		OrderType:  orderType,
+		Page:       int(page),
+		Limit:      int(perPage),
+		StartPrice: startPrice,
+		EndPrice:   endPrice,
+	}
+
+	if c.QueryParam("search") != "" {
+		reqEntity.Search = c.QueryParam("search")
+	}
+
+	results, totalData, totalPage, err := p.service.GetAll(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[ProductHandler-1] GetAllShop: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	for _, result := range results {
+		respLists = append(respLists, response.ProductHomeListResponse{
+			ID:           result.ID,
+			ProductName:  result.Name,
+			ProductImage: result.Image,
+			SalePrice:    int64(result.SalePrice),
+			RegulerPrice: int64(result.RegulerPrice),
+			CategoryName: result.CategoryName,
+		})
+	}
+
+	resp.Message = "success"
+	resp.Data = respLists
+	resp.Pagination = &response.Pagination{
+		Page:       page,
+		TotalCount: totalData,
+		TotalPage:  totalPage,
+		PerPage:    perPage,
+	}
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetAllHome implements ProductHandlerInterface.
@@ -472,6 +556,7 @@ func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.Product
 
 	homeProduct := e.Group("/products")
 	homeProduct.GET("/home", product.GetAllHome)
+	homeProduct.GET("/shop", product.GetAllShop)
 
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
