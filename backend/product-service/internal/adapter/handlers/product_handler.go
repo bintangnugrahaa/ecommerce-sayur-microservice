@@ -21,10 +21,62 @@ type ProductHandlerInterface interface {
 	CreateAdmin(c echo.Context) error
 	EditAdmin(c echo.Context) error
 	DeleteAdmin(c echo.Context) error
+
+	GetAllHome(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// GetAllHome implements ProductHandlerInterface.
+func (p *productHandler) GetAllHome(c echo.Context) error {
+	var (
+		resp      = response.DefaultResponse{}
+		ctx       = c.Request().Context()
+		respLists = []response.ProductHomeListResponse{}
+	)
+
+	orderBy := "created_at"
+	orderType := "desc"
+	var page int64 = 1
+	var perPage int64 = 5
+
+	reqEntity := entity.QueryStringProduct{
+		OrderBy:   orderBy,
+		OrderType: orderType,
+		Page:      int(page),
+		Limit:     int(perPage),
+	}
+
+	results, _, _, err := p.service.GetAll(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[ProductHandler-1] GetAllHome: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	for _, result := range results {
+		respLists = append(respLists, response.ProductHomeListResponse{
+			ID:           result.ID,
+			ProductName:  result.Name,
+			ProductImage: result.Image,
+			SalePrice:    int64(result.SalePrice),
+			RegulerPrice: int64(result.RegulerPrice),
+			CategoryName: result.CategoryName,
+		})
+	}
+
+	resp.Message = "success"
+	resp.Data = respLists
+	return c.JSON(http.StatusOK, resp)
 }
 
 // DeleteAdmin implements ProductHandlerInterface.
@@ -417,6 +469,10 @@ func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.Product
 	product := &productHandler{service: service}
 
 	e.Use(middleware.Recover())
+
+	homeProduct := e.Group("/products")
+	homeProduct.GET("/home", product.GetAllHome)
+
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/products", product.GetAllAdmin)
