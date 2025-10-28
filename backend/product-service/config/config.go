@@ -38,12 +38,25 @@ type Redis struct {
 	Port string `json:"port"`
 }
 
+type ElasticSearch struct {
+	Host string `json:"host"`
+}
+
+type PublisherName struct {
+	ProductUpdateStock string `json:"product_update_stock"`
+	ProductPublish     string `json:"product_publish"`
+	ProductDelete      string `json:"product_delete"`
+	ProductToOrder     string `json:"product_to_order"`
+}
+
 type Config struct {
-	App      App      `json:"app"`
-	Psql     PsqlDB   `json:"psql"`
-	RabbitMQ RabbitMQ `json:"rabbitmq"`
-	Storage  Supabase `json:"storage"`
-	Redis    Redis    `json:"redis"`
+	App           App           `json:"app"`
+	Psql          PsqlDB        `json:"psql"`
+	RabbitMQ      RabbitMQ      `json:"rabbitmq"`
+	Storage       Supabase      `json:"storage"`
+	Redis         Redis         `json:"redis"`
+	ElasticSearch ElasticSearch `json:"elasticsearch"`
+	PublisherName PublisherName `json:"publisher_name"`
 }
 
 func NewConfig() *Config {
@@ -77,6 +90,15 @@ func NewConfig() *Config {
 		Redis: Redis{
 			Host: viper.GetString("REDIS_HOST"),
 			Port: viper.GetString("REDIS_PORT"),
+		},
+		ElasticSearch: ElasticSearch{
+			Host: viper.GetString("ELASTICSEARCH_HOST"),
+		},
+		PublisherName: PublisherName{
+			ProductUpdateStock: viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
+			ProductPublish:     viper.GetString("PRODUCT_PUBLISH_NAME"),
+			ProductDelete:      viper.GetString("PRODUCT_DELETE"),
+			ProductToOrder:     viper.GetString("PRODUCT_TO_ORDER"),
 		},
 	}
 }
