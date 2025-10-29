@@ -27,13 +27,19 @@ func RunServer() {
 		return
 	}
 
+	elasticInit, err := cfg.InitElasticsearch()
+	if err != nil {
+		log.Fatalf("[RunServer-2] %v", err)
+		return
+	}
+
 	storageHandler := storage.NewSupabase(cfg)
 
 	categoryRepo := repository.NewCategoryRepository(db.DB)
-	prodyctRepo := repository.NewProductRepository(db.DB)
+	productRepo := repository.NewProductRepository(db.DB, elasticInit)
 
 	categoryService := service.NewCategoryService(categoryRepo)
-	productService := service.NewProductService(prodyctRepo)
+	productService := service.NewProductService(productRepo)
 
 	e := echo.New()
 	e.Use(middleware.CORS())

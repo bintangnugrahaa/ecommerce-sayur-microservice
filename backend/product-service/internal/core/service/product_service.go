@@ -12,10 +12,16 @@ type ProductServiceInterface interface {
 	Create(ctx context.Context, req entity.ProductEntity) error
 	Update(ctx context.Context, req entity.ProductEntity) error
 	Delete(ctx context.Context, productID int64) error
+	SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
 }
 
 type productService struct {
 	repo repository.ProductRepositoryInterface
+}
+
+// SearchProducts implements ProductServiceInterface.
+func (p *productService) SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error) {
+	return p.repo.SearchProducts(ctx, query)
 }
 
 // Create implements ProductServiceInterface.
