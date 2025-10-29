@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/domain/model"
+	"strings"
 
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
@@ -18,10 +21,113 @@ type ProductRepositoryInterface interface {
 	Create(ctx context.Context, req entity.ProductEntity) error
 	Update(ctx context.Context, req entity.ProductEntity) error
 	Delete(ctx context.Context, productID int64) error
+	SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error)
 }
 
 type productRepository struct {
-	db *gorm.DB
+	db       *gorm.DB
+	esClient *elasticsearch.Client
+}
+
+// SearchProducts implements ProductRepositoryInterface.
+func (p *productRepository) SearchProducts(ctx context.Context, query entity.QueryStringProduct) ([]entity.ProductEntity, int64, int64, error) {
+	var mainQueries []string
+	var filterQueries []string
+	from := (query.Page - 1) * query.Limit
+
+	sortField := "id"
+	if query.OrderBy != "" {
+		sortField = query.OrderBy
+	}
+
+	// Menentukan urutan sorting (asc atau desc)
+	sortOrder := "asc"
+	if query.OrderType == "desc" {
+		sortOrder = "desc"
+	}
+
+	// Menyusun bagian sort query
+	sortQuery := fmt.Sprintf(`{ "%s": "%s" }`, sortField, sortOrder)
+
+	if query.CategorySlug != "" {
+		filterQueries = append(filterQueries, fmt.Sprintf(`{ "term": { "category_slug.keyword": "%s" } }`, query.CategorySlug))
+	}
+
+	if query.StartPrice > 0 && query.EndPrice > 0 {
+		filterQueries = append(filterQueries, fmt.Sprintf(`{ "range": { "reguler_price": { "gte": %d, "lte": %d } } }`, query.StartPrice, query.EndPrice))
+	}
+
+	if query.Search != "" {
+		mainQueries = append(mainQueries, fmt.Sprintf(`{ "multi_match": { "query": "%s", "fields": ["name", "description", "category_name"] } }`, query.Search))
+	}
+
+	// Query Elasticsearch dengan filtering dan pagination
+	mainQuery := fmt.Sprintf(`{
+		"from": %d,
+		"size": %d,
+		"query": {
+			"bool": {
+				"must": [
+					%s
+				],
+				"filter": [ 
+					%s
+				]
+			}
+		},
+		"sort": [
+			%s
+		]
+	}`, from, query.Limit, strings.Join(mainQueries, ","), strings.Join(filterQueries, ","), sortQuery)
+
+	// Query Elasticsearch dengan filtering dan pagination
+	// Kirim query ke Elasticsearch
+	res, err := p.esClient.Search(
+		p.esClient.Search.WithContext(ctx),
+		p.esClient.Search.WithIndex("products"),
+		p.esClient.Search.WithBody(strings.NewReader(mainQuery)),
+		p.esClient.Search.WithPretty(),
+	)
+
+	if err != nil {
+		log.Printf("Error searching Elasticsearch: %s", err)
+		return nil, 0, 0, err
+	}
+	defer res.Body.Close()
+
+	// Decode response
+	var result map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		log.Printf("Error decoding response: %s", err)
+		return nil, 0, 0, err
+	}
+
+	// Ambil total data
+	totalData := 0
+	if hitsTotal, found := result["hits"].(map[string]interface{})["total"].(map[string]interface{}); found {
+		totalData = int(hitsTotal["value"].(float64))
+	}
+
+	// Hitung total halaman
+	totalPage := 0
+	if query.Limit > 0 {
+		totalPage = int(math.Ceil(float64(totalData) / float64(query.Limit)))
+	}
+
+	// Parsing hasil pencarian ke struct domain.Product
+	products := []entity.ProductEntity{}
+	hits, found := result["hits"].(map[string]interface{})["hits"].([]interface{})
+	if found {
+		for _, hit := range hits {
+			source := hit.(map[string]interface{})["_source"]
+			data, _ := json.Marshal(source)
+			var product entity.ProductEntity
+			json.Unmarshal(data, &product)
+			products = append(products, product)
+		}
+	}
+
+	return products, int64(totalData), int64(totalPage), nil
 }
 
 // Delete implements ProductRepositoryInterface.
@@ -284,6 +390,6 @@ func (p *productRepository) GetAll(ctx context.Context, query entity.QueryString
 	return respProducts, countData, int64(totalPage), nil
 }
 
-func NewProductRepository(db *gorm.DB) ProductRepositoryInterface {
-	return &productRepository{db: db}
+func NewProductRepository(db *gorm.DB, es *elasticsearch.Client) ProductRepositoryInterface {
+	return &productRepository{db: db, esClient: es}
 }
