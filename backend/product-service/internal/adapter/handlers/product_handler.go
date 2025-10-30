@@ -25,10 +25,77 @@ type ProductHandlerInterface interface {
 
 	GetAllHome(c echo.Context) error
 	GetAllShop(c echo.Context) error
+	GetDetailHome(c echo.Context) error
 }
 
 type productHandler struct {
 	service service.ProductServiceInterface
+}
+
+// GetDetailHome implements ProductHandlerInterface.
+func (p *productHandler) GetDetailHome(c echo.Context) error {
+	var (
+		resp       = response.DefaultResponse{}
+		ctx        = c.Request().Context()
+		respDetail = response.ProductHomeDetailResponse{}
+	)
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		log.Errorf("[ProductHandler-1] GetDetailHome: %v", "Invalid id")
+		resp.Message = "ID is required"
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	id, err := conv.StringToInt64(idStr)
+	if err != nil {
+		log.Errorf("[ProductHandler-2] GetDetailHome: %v", err.Error())
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	result, err := p.service.GetByID(ctx, id)
+	if err != nil {
+		log.Errorf("[ProductHandler-3] GetDetailHome: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+
+		resp.Message = err.Error()
+		resp.Data = nil
+
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	respDetail.ID = result.ID
+	respDetail.ProductName = result.Name
+	respDetail.CategoryName = result.CategoryName
+	respDetail.Description = result.Description
+	respDetail.Unit = result.Unit
+	respDetail.Weight = result.Weight
+	respDetail.Stock = result.Stock
+	respDetail.RegulerPrice = int64(result.RegulerPrice)
+	respDetail.SalePrice = int64(result.SalePrice)
+	respDetail.ProductImage = result.Image
+
+	for _, child := range result.Child {
+		respDetail.Child = append(respDetail.Child, response.ProductChildHomeResponse{
+			ID:           child.ID,
+			Weight:       child.Weight,
+			Stock:        child.Stock,
+			RegulerPrice: int64(child.RegulerPrice),
+			SalePrice:    int64(child.SalePrice),
+			Image:        child.Image,
+		})
+	}
+
+	resp.Message = "success"
+	resp.Data = respDetail
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetAllShop implements ProductHandlerInterface.
@@ -557,6 +624,7 @@ func NewProductHandler(e *echo.Echo, cfg *config.Config, service service.Product
 	homeProduct := e.Group("/products")
 	homeProduct.GET("/home", product.GetAllHome)
 	homeProduct.GET("/shop", product.GetAllShop)
+	homeProduct.GET("/home/:id", product.GetDetailHome)
 
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
