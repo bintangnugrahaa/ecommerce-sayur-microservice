@@ -8,6 +8,7 @@ import (
 	"math"
 	"product-service/internal/core/domain/entity"
 	"product-service/internal/core/domain/model"
+	"strconv"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -146,6 +147,19 @@ func (p *productRepository) Delete(ctx context.Context, productID int64) error {
 		log.Errorf("[ProductRepository-2] Delete: %v", err)
 		return err
 	}
+
+	res, err := p.esClient.Delete(
+		"products",
+		strconv.Itoa(int(productID)),
+		p.esClient.Delete.WithRefresh("true"),
+	)
+	if err != nil {
+		log.Errorf("[ProductRepository-3] Delete: %v", err)
+		return err
+	}
+
+	defer res.Body.Close()
+	log.Infof("[ProductRepository-4] Delete Product Elasticsearch: %d", productID)
 
 	return nil
 }
