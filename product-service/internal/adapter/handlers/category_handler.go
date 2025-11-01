@@ -22,10 +22,81 @@ type CategoryHandlerInterface interface {
 	Create(c echo.Context) error
 	Update(c echo.Context) error
 	Delete(c echo.Context) error
+
+	GetAllHome(c echo.Context) error
+	GetAllShop(c echo.Context) error
 }
 
 type categoryHandler struct {
 	categoryService service.CategoryServiceInterface
+}
+
+// GetAllShop implements CategoryHandlerInterface.
+func (ch *categoryHandler) GetAllShop(c echo.Context) error {
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = []response.CategoryListHomeResponse{}
+	)
+
+	results, err := ch.categoryService.GetAllPublished(ctx)
+	if err != nil {
+		log.Errorf("[CategoryHandler-1] GetAllHome: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	for _, result := range results {
+		respCategories = append(respCategories, response.CategoryListHomeResponse{
+			Name: result.Name,
+			Icon: result.Icon,
+			Slug: result.Slug,
+		})
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
+}
+
+// GetAllHome implements CategoryHandlerInterface.
+func (ch *categoryHandler) GetAllHome(c echo.Context) error {
+	var (
+		resp           = response.DefaultResponse{}
+		ctx            = c.Request().Context()
+		respCategories = []response.CategoryListHomeResponse{}
+	)
+
+	results, err := ch.categoryService.GetAllPublished(ctx)
+	if err != nil {
+		log.Errorf("[CategoryHandler-1] GetAllHome: %v", err)
+		if err.Error() == "404" {
+			resp.Message = "Data not found"
+			resp.Data = nil
+			return c.JSON(http.StatusNotFound, resp)
+		}
+		resp.Message = err.Error()
+		resp.Data = nil
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	for _, result := range results {
+		respCategories = append(respCategories, response.CategoryListHomeResponse{
+			Name: result.Name,
+			Icon: result.Icon,
+			Slug: result.Slug,
+		})
+	}
+
+	resp.Message = "success"
+	resp.Data = respCategories
+	return c.JSON(http.StatusOK, resp)
 }
 
 // Create implements CategoryHandlerInterface.

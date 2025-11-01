@@ -17,10 +17,17 @@ type CategoryServiceInterface interface {
 	CreateCategory(ctx context.Context, req entity.CategoryEntity) error
 	EditCategory(ctx context.Context, req entity.CategoryEntity) error
 	DeleteCategory(ctx context.Context, categoryID int64) error
+
+	GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error)
 }
 
 type categoryService struct {
 	repo repository.CategoryRepositoryInterface
+}
+
+// GetAllPublished implements CategoryServiceInterface.
+func (c *categoryService) GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error) {
+	return c.repo.GetAllPublished(ctx)
 }
 
 // CreateCategory implements CategoryServiceInterface.

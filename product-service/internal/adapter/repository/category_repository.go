@@ -19,10 +19,42 @@ type CategoryRepositoryInterface interface {
 	CreateCategory(ctx context.Context, req entity.CategoryEntity) error
 	EditCategory(ctx context.Context, req entity.CategoryEntity) error
 	DeleteCategory(ctx context.Context, categoryID int64) error
+
+	GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error)
 }
 
 type categoryRepository struct {
 	db *gorm.DB
+}
+
+// GetAllPublished implements CategoryRepositoryInterface.
+func (c *categoryRepository) GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error) {
+	modelCategories := []model.Category{}
+
+	if err := c.db.Select("id, parent_id, name, icon, slug").Where("status = ? AND parent_is IS NULL", "published").Find(&modelCategories).Error; err != nil {
+		log.Errorf("[CategoryRepository-1] GetAllPublished: %v", err)
+		return nil, err
+	}
+
+	if len(modelCategories) == 0 {
+		err := errors.New("404")
+		log.Infof("[CategoryRepository-2] GetAllPublished: No category found")
+		return nil, err
+	}
+
+	entities := []entity.CategoryEntity{}
+	for _, val := range modelCategories {
+		entities = append(entities, entity.CategoryEntity{
+			ID:          val.ID,
+			ParentID:    val.ParentID,
+			Name:        val.Name,
+			Icon:        val.Icon,
+			Status:      "Published",
+			Slug:        val.Slug,
+		})
+	}
+
+	return entities, nil
 }
 
 // DeleteCategory implements CategoryRepositoryInterface.
