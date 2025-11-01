@@ -36,12 +36,12 @@ func (ch *categoryHandler) GetAllShop(c echo.Context) error {
 	var (
 		resp           = response.DefaultResponse{}
 		ctx            = c.Request().Context()
-		respCategories = []response.CategoryListHomeResponse{}
+		respCategories = []response.CategoryListShopResponse{}
 	)
 
 	results, err := ch.categoryService.GetAllPublished(ctx)
 	if err != nil {
-		log.Errorf("[CategoryHandler-1] GetAllHome: %v", err)
+		log.Errorf("[CategoryHandler-1] GetAllShop: %v", err)
 		if err.Error() == "404" {
 			resp.Message = "Data not found"
 			resp.Data = nil
@@ -52,13 +52,7 @@ func (ch *categoryHandler) GetAllShop(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, resp)
 	}
 
-	for _, result := range results {
-		respCategories = append(respCategories, response.CategoryListHomeResponse{
-			Name: result.Name,
-			Icon: result.Icon,
-			Slug: result.Slug,
-		})
-	}
+	respCategories = RekursifCategory(results, nil, 0)
 
 	resp.Message = "success"
 	resp.Data = respCategories
@@ -422,6 +416,10 @@ func (ch *categoryHandler) GetAllAdmin(c echo.Context) error {
 func NewCategoryHandler(e *echo.Echo, categoryService service.CategoryServiceInterface, cfg *config.Config) CategoryHandlerInterface {
 	category := &categoryHandler{categoryService: categoryService}
 
+	categoryApp := e.Group("/categories")
+	categoryApp.GET("/home", category.GetAllHome)
+	categoryApp.GET("/shop", category.GetAllShop)
+
 	e.Use(middleware.Recover())
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	adminGroup := e.Group("/admin", mid.CheckToken())
@@ -433,4 +431,22 @@ func NewCategoryHandler(e *echo.Echo, categoryService service.CategoryServiceInt
 	adminGroup.DELETE("/categories/:id", category.Delete)
 
 	return category
+}
+
+func RekursifCategory(results []entity.CategoryEntity, parentID *int64, level int) []response.CategoryListShopResponse {
+	var resps []response.CategoryListShopResponse
+
+	for _, category := range results {
+		if category.ParentID == parentID {
+			resps = append(resps, response.CategoryListShopResponse{
+				Name: category.Name,
+				Slug: category.Slug,
+			})
+
+			childCategories := RekursifCategory(results, &category.ID, level+1)
+			resps = append(resps, childCategories...)
+		}
+	}
+
+	return resps
 }

@@ -31,7 +31,7 @@ type categoryRepository struct {
 func (c *categoryRepository) GetAllPublished(ctx context.Context) ([]entity.CategoryEntity, error) {
 	modelCategories := []model.Category{}
 
-	if err := c.db.Select("id, parent_id, name, icon, slug").Where("status = ? AND parent_is IS NULL", "published").Find(&modelCategories).Error; err != nil {
+	if err := c.db.Select("id, parent_id, name, icon, slug").Where("status = ?", "published").Find(&modelCategories).Error; err != nil {
 		log.Errorf("[CategoryRepository-1] GetAllPublished: %v", err)
 		return nil, err
 	}
