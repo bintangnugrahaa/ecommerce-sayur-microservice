@@ -501,19 +501,21 @@ func (p *productHandler) GetByIDAdmin(c echo.Context) error {
 	}
 
 	respProduct = response.ProductDetailResponse{
-		ID:            result.ID,
-		ProductName:   result.Name,
-		ParentID:      conv.Int64PointerToInt64(result.ParentID),
-		ProductImage:  result.Image,
-		CategoryName:  result.CategoryName,
-		ProductStatus: result.Status,
-		SalePrice:     int64(result.SalePrice),
-		RegulerPrice:  int64(result.RegulerPrice),
-		Unit:          result.Unit,
-		Weight:        result.Weight,
-		Stock:         result.Stock,
-		CreatedAt:     result.CreatedAt,
-		Child:         responseChilds,
+		ID:                 result.ID,
+		ProductName:        result.Name,
+		ParentID:           conv.Int64PointerToInt64(result.ParentID),
+		ProductImage:       result.Image,
+		CategorySlug:       result.CategorySlug,
+		CategoryName:       result.CategoryName,
+		ProductStatus:      result.Status,
+		ProductDescription: result.Description,
+		SalePrice:          int64(result.SalePrice),
+		RegulerPrice:       int64(result.RegulerPrice),
+		Unit:               result.Unit,
+		Weight:             result.Weight,
+		Stock:              result.Stock,
+		CreatedAt:          result.CreatedAt,
+		Child:              responseChilds,
 	}
 
 	resp.Message = "success"
@@ -567,6 +569,11 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 		endPrice = 0
 	}
 
+	var status = ""
+	if c.QueryParam("status") != "" {
+		status = c.QueryParam("status")
+	}
+
 	reqEntity := entity.QueryStringProduct{
 		Search:       search,
 		OrderBy:      orderBy,
@@ -576,6 +583,7 @@ func (p *productHandler) GetAllAdmin(c echo.Context) error {
 		CategorySlug: categorySlug,
 		StartPrice:   startPrice,
 		EndPrice:     endPrice,
+		Status:       status,
 	}
 
 	result, totalData, totalPage, err := p.service.GetAll(ctx, reqEntity)
