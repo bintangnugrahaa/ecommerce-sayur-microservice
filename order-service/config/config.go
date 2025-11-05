@@ -7,6 +7,8 @@ type App struct {
 	AppEnv  string `json:"app_env"`
 
 	JwtSecretKey string `json:"jwt_secret_key"`
+
+	ServerTimeOut int `json:"server_time_out"`
 }
 
 type PsqlDB struct {
@@ -32,10 +34,10 @@ type Redis struct {
 }
 
 type Config struct {
-	App           App           `json:"app"`
-	Psql          PsqlDB        `json:"psql"`
-	RabbitMQ      RabbitMQ      `json:"rabbitmq"`
-	Redis         Redis         `json:"redis"`
+	App      App      `json:"app"`
+	Psql     PsqlDB   `json:"psql"`
+	RabbitMQ RabbitMQ `json:"rabbitmq"`
+	Redis    Redis    `json:"redis"`
 }
 
 func NewConfig() *Config {
@@ -44,7 +46,8 @@ func NewConfig() *Config {
 			AppPort: viper.GetString("APP_PORT"),
 			AppEnv:  viper.GetString("APP_ENV"),
 
-			JwtSecretKey: viper.GetString("JWT_SECRET_KEY"),
+			JwtSecretKey:  viper.GetString("JWT_SECRET_KEY"),
+			ServerTimeOut: viper.GetInt("SERVER_TIME_OUT"),
 		},
 		Psql: PsqlDB{
 			Host:      viper.GetString("DATABASE_HOST"),
