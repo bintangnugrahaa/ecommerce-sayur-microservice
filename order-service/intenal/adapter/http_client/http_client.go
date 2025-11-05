@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 	"order-service/config"
-	"os"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
 
@@ -19,11 +19,11 @@ type HttpClient interface {
 type Options struct {
 	timeout int
 	http    *http.Client
-	logger  *log.Logger
+	logger  echo.Logger
 }
 
 type loggingTransport struct {
-	logger *log.Logger
+	logger echo.Logger
 }
 
 func NewHttpClient(cfg *config.Config) HttpClient {
@@ -33,28 +33,26 @@ func NewHttpClient(cfg *config.Config) HttpClient {
 }
 
 func (o *Options) Connect() {
-	now := time.Now().Format("2006-01-02")
-	file, err := os.Create("./logs/" + now + ".log")
-	if err != nil {
-		log.Errorf("[FAILED] Create file logger : %v", err)
-	}
-
-	logger := log.New(file, "", log.LstdFlags)
+	e := echo.New()
+	e.Logger.SetLevel(log.INFO)
 
 	httpClient := &http.Client{
 		Timeout:   time.Duration(o.timeout) * time.Second,
-		Transport: &loggingTransport{logger: logger},
+		Transport: &loggingTransport{logger: e.Logger},
 	}
 
 	o.http = httpClient
-	o.logger = logger
+	o.logger = e.Logger
 }
 
 func (o *Options) CallURL(method, url string, header map[string]string, rawData []byte) (*http.Response, error) {
 	o.Connect()
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(rawData))
 	if err != nil {
-		log.Errorf("[HttpClient-1] CallURL: %v", err)
+		o.logger.Errorj(log.JSON{
+			"message": "[CallURL-1] Failed To Prepare Request Client HTTP",
+			"error":   err.Error(),
+		})
 		return nil, err
 	}
 
@@ -66,7 +64,10 @@ func (o *Options) CallURL(method, url string, header map[string]string, rawData 
 
 	resp, err := o.http.Do(req)
 	if err != nil {
-		log.Errorf("[HttpClient-2] CallURL: %v", err)
+		o.logger.Errorj(log.JSON{
+			"message": "[CallURL-2] Failed To DO Request Client HTTP",
+			"error":   err.Error(),
+		})
 		return nil, err
 	}
 
@@ -75,8 +76,8 @@ func (o *Options) CallURL(method, url string, header map[string]string, rawData 
 
 func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Logging sebelum request
-	lt.logger.Printf("Making request to: %s %s", req.Method, req.URL)
-	lt.logger.Printf("Request Headers: %+v", req.Header)
+	lt.logger.Infof("Making request to: %s %s", req.Method, req.URL)
+	lt.logger.Infof("Request Headers: %+v", req.Header)
 
 	// Mengganti request body karena sudah dibaca dalam fungsi logging
 	reqBody, err := io.ReadAll(req.Body)
@@ -84,22 +85,22 @@ func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		return nil, err
 	}
 	req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
-	lt.logger.Printf("Request Body: %s", reqBody)
+	lt.logger.Infof("Request Body: %s", reqBody)
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
-		lt.logger.Printf("Request failed: %v", err)
+		lt.logger.Infof("Request failed: %v", err)
 		return nil, err
 	}
 
 	// Logging setelah menerima respons
-	lt.logger.Printf("Received response with status: %s", resp.Status)
-	lt.logger.Printf("Response Headers: %+v", resp.Header)
+	lt.logger.Infof("Received response with status: %s", resp.Status)
+	lt.logger.Infof("Response Headers: %+v", resp.Header)
 
 	// Menampilkan Response Body (jika ada)
 	respBody, err := io.ReadAll(resp.Body)
 	if err == nil {
-		lt.logger.Printf("Response Body: %s", respBody)
+		lt.logger.Infof("Response Body: %s", respBody)
 	}
 	resp.Body = io.NopCloser(bytes.NewBuffer(respBody))
 
