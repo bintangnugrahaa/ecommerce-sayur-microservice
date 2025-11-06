@@ -6,6 +6,7 @@ import (
 	"math"
 	"order-service/intenal/core/domain/entity"
 	"order-service/intenal/core/domain/model"
+	"time"
 
 	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
@@ -14,7 +15,7 @@ import (
 type OrderRepositoryInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity) ([]entity.OrderEntity, int64, int64, error)
 	GetByID(ctx context.Context, orderID int64) (*entity.OrderEntity, error)
-	CreateOrder(ctx context.Context, req entity.OrderEntity) error
+	CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error)
 	EditOrder(ctx context.Context, req entity.OrderEntity) error
 	DeleteOrder(ctx context.Context, orderID int64) error
 
@@ -26,8 +27,47 @@ type orderRepository struct {
 }
 
 // CreateOrder implements OrderRepositoryInterface.
-func (o *orderRepository) CreateOrder(ctx context.Context, req entity.OrderEntity) error {
-	panic("unimplemented")
+func (o *orderRepository) CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error) {
+	orderDate, err := time.Parse("2006-01-02", req.OrderDate)
+	if err != nil {
+		log.Errorf("[OrderRepository] CreateOrder: %v", err)
+		return 0, err
+	}
+
+	orderTime, err := time.Parse("15:04:05", req.OrderTime)
+	if err != nil {
+		log.Errorf("[OrderRepository] CreateOrder: %v", err)
+		return 0, err
+	}
+
+	var orderItems []model.OrderItem
+	for _, item := range req.OrderItems {
+		orderItem := model.OrderItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		}
+		orderItems = append(orderItems, orderItem)
+	}
+
+	newOrder := model.Order{
+		OrderCode:    req.OrderCode,
+		BuyerID:      req.BuyerID,
+		OrderDate:    orderDate,
+		OrderTime:    orderTime,
+		Status:       req.Status,
+		TotalAmount:  req.TotalAmount,
+		ShippingType: req.ShippingType,
+		ShippingFee:  req.ShippingFee,
+		Remarks:      req.Remarks,
+		OrderItems:   orderItems,
+	}
+
+	if err := o.db.Create(&newOrder).Error; err != nil {
+		log.Errorf("[OrderRepository] CreateOrder: %v", err)
+		return 0, err
+	}
+
+	return newOrder.ID, nil
 }
 
 // DeleteOrder implements OrderRepositoryInterface.
