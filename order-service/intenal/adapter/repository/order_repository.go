@@ -82,6 +82,7 @@ func (o *orderRepository) GetAll(ctx context.Context, queryString entity.QuerySt
 			OrderDate:   val.OrderDate.Format("2006-01-02 15:04:05"),
 			TotalAmount: val.TotalAmount,
 			OrderItems:  orderItemsEntities,
+			BuyerID:     val.BuyerID,
 		})
 	}
 
@@ -95,7 +96,39 @@ func (o *orderRepository) GetAllPublished(ctx context.Context) ([]entity.OrderEn
 
 // GetByID implements OrderRepositoryInterface.
 func (o *orderRepository) GetByID(ctx context.Context, orderID int64) (*entity.OrderEntity, error) {
-	panic("unimplemented")
+	var modelOrders model.Order
+
+	if err := o.db.Preload("OrderItems").Where("id =?", orderID).First(&modelOrders).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err := errors.New("404")
+			log.Infof("[OrderRepository-1] GetByID: Order not found")
+			return nil, err
+		}
+		log.Errorf("[OrderRepository-2] GetByID: %v", err)
+		return nil, err
+	}
+
+	orderItemsEntities := []entity.OrderItemEntity{}
+	for _, item := range modelOrders.OrderItems {
+		orderItemsEntities = append(orderItemsEntities, entity.OrderItemEntity{
+			ID:        item.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		})
+	}
+
+	return &entity.OrderEntity{
+		ID:           modelOrders.ID,
+		OrderCode:    modelOrders.OrderCode,
+		Status:       modelOrders.Status,
+		BuyerID:      modelOrders.BuyerID,
+		OrderDate:    modelOrders.OrderDate.Format("2006-01-02 15:04:05"),
+		TotalAmount:  modelOrders.TotalAmount,
+		OrderItems:   orderItemsEntities,
+		Remarks:      modelOrders.Remarks,
+		ShippingType: modelOrders.ShippingType,
+		ShippingFee:  modelOrders.ShippingFee,
+	}, nil
 }
 
 func NewOrderRepository(db *gorm.DB) OrderRepositoryInterface {
