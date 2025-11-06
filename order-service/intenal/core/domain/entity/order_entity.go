@@ -2,7 +2,7 @@ package entity
 
 import "time"
 
-type OrderEhtity struct {
+type OrderEntity struct {
 	ID           int64
 	OrderCode    string
 	BuyerID      int64
@@ -16,4 +16,11 @@ type OrderEhtity struct {
 	CreatedAt    time.Time
 	OrderItems   []OrderItemEntity
 	BuyerName    string
+}
+
+type QueryStringEntity struct {
+	Page   int64
+	Search string
+	Limit  int64
+	Status string
 }
