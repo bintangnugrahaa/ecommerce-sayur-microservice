@@ -25,6 +25,19 @@ func ResponseSuccess(message string, data interface{}) DefaultResponse {
 	}
 }
 
+func ResponseSuccessWithPagination(message string, data interface{}, page, totalData, totalPage, limit int64) DefaultResponseWithPaginations {
+	return DefaultResponseWithPaginations{
+		Message: message,
+		Data:    data,
+		Pagination: &Pagination{
+			Page:       page,
+			TotalCount: totalData,
+			PerPage:    limit,
+			TotalPage:  totalPage,
+		},
+	}
+}
+
 func ResponseError(message string) DefaultResponse {
 	return DefaultResponse{
 		Message: message,
