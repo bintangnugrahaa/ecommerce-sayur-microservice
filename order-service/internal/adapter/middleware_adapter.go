@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"order-service/config"
-	"order-service/intenal/adapter/handler/response"
-	"order-service/intenal/core/domain/entity"
+	"order-service/internal/adapter/handlers/response"
+	"order-service/internal/core/domain/entity"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"math"
-	"order-service/intenal/core/domain/entity"
-	"order-service/intenal/core/domain/model"
+	"order-service/internal/core/domain/entity"
+	"order-service/internal/core/domain/model"
 	"time"
 
 	"github.com/labstack/gommon/log"

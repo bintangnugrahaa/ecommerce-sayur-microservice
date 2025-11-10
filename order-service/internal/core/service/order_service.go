@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 	"order-service/config"
-	httpclient "order-service/intenal/adapter/http_client"
-	"order-service/intenal/adapter/repository"
-	"order-service/intenal/core/domain/entity"
+	httpclient "order-service/internal/adapter/http_client"
+	"order-service/internal/adapter/repository"
+	"order-service/internal/core/domain/entity"
 	"strconv"
 
 	"github.com/labstack/gommon/log"
