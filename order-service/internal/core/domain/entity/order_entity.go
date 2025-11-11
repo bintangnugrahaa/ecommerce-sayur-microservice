@@ -16,6 +16,11 @@ type OrderEntity struct {
 	CreatedAt    time.Time
 	OrderItems   []OrderItemEntity
 	BuyerName    string
+	BuyerEmail   string
+	BuyerPhone   string
+	BuyerAddress string
+	BuyerLat     string
+	BuyerLng     string
 }
 
 type QueryStringEntity struct {
