@@ -33,29 +33,9 @@ func (o *orderService) GetByID(ctx context.Context, orderID int64, accessToken s
 		return nil, err
 	}
 
-	baseUrlUser := fmt.Sprintf("%s/%s", o.cfg.App.UserServiceUrl, "admin/customers/"+strconv.FormatInt(result.BuyerID, 10))
-	header := map[string]string{
-		"Authorization": "Bearer " + accessToken,
-		"Accept":        "application/json",
-	}
-	dataUser, err := o.httpClient.CallURL("GET", baseUrlUser, header, nil)
+	userResponse, err := o.httpClientUserService(result.BuyerID, accessToken)
 	if err != nil {
 		log.Errorf("[OrderService-2] GetByID: %v", err)
-		return nil, err
-	}
-
-	defer dataUser.Body.Close()
-
-	bodyUser, err := io.ReadAll(dataUser.Body)
-	if err != nil {
-		log.Errorf("[OrderService-3] GetByID: %v", err)
-		return nil, err
-	}
-
-	var userResponse map[string]interface{}
-	err = json.Unmarshal(bodyUser, &userResponse)
-	if err != nil {
-		log.Errorf("[OrderService-4] GetByID: %v", err)
 		return nil, err
 	}
 
@@ -65,29 +45,9 @@ func (o *orderService) GetByID(ctx context.Context, orderID int64, accessToken s
 	result.BuyerAddress = userResponse["address"].(string)
 
 	for _, val := range result.OrderItems {
-		baseUrl := fmt.Sprintf("%s/%s", o.cfg.App.ProductServiceUrl, "admin/products/"+strconv.FormatInt(val.ProductID, 10))
-		header := map[string]string{
-			"Authorization": "Bearer " + accessToken,
-			"Accept":        "application/json",
-		}
-		dataProduct, err := o.httpClient.CallURL("GET", baseUrl, header, nil)
+		productResponse, err := o.httpClientProductService(val.ProductID, accessToken)
 		if err != nil {
-			log.Errorf("[OrderService-5] GetByID: %v", err)
-			return nil, err
-		}
-
-		defer dataProduct.Body.Close()
-
-		body, err := io.ReadAll(dataProduct.Body)
-		if err != nil {
-			log.Errorf("[OrderService-6] GetByID: %v", err)
-			return nil, err
-		}
-
-		var productResponse map[string]interface{}
-		err = json.Unmarshal(body, &productResponse)
-		if err != nil {
-			log.Errorf("[OrderService-7] GetByID: %v", err)
+			log.Errorf("[OrderService-3] GetByID: %v", err)
 			return nil, err
 		}
 
@@ -108,58 +68,19 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 	}
 
 	for _, val := range results {
-		baseUrlUser := fmt.Sprintf("%s/%s", o.cfg.App.UserServiceUrl, "admin/customers/"+strconv.FormatInt(val.BuyerID, 10))
-		header := map[string]string{
-			"Authorization": "Bearer " + accessToken,
-			"Accept":        "application/json",
-		}
-		dataUser, err := o.httpClient.CallURL("GET", baseUrlUser, header, nil)
+
+		userResponse, err := o.httpClientUserService(val.BuyerID, accessToken)
 		if err != nil {
-			log.Errorf("[OrderService-5] GetAll: %v", err)
+			log.Errorf("[OrderService-2] GetAll: %v", err)
 			return nil, 0, 0, err
 		}
-
-		defer dataUser.Body.Close()
-
-		bodyUser, err := io.ReadAll(dataUser.Body)
-		if err != nil {
-			log.Errorf("[OrderService-6] GetAll: %v", err)
-			return nil, 0, 0, err
-		}
-
-		var userResponse map[string]interface{}
-		err = json.Unmarshal(bodyUser, &userResponse)
-		if err != nil {
-			log.Errorf("[OrderService-7] GetAll: %v", err)
-			return nil, 0, 0, err
-		}
-
 		val.BuyerName = userResponse["name"].(string)
 
 		for _, res := range val.OrderItems {
-			baseUrl := fmt.Sprintf("%s/%s", o.cfg.App.ProductServiceUrl, "admin/products/"+strconv.FormatInt(res.ProductID, 10))
-			header := map[string]string{
-				"Authorization": "Bearer " + accessToken,
-				"Accept":        "application/json",
-			}
-			dataProduct, err := o.httpClient.CallURL("GET", baseUrl, header, nil)
-			if err != nil {
-				log.Errorf("[OrderService-2] GetAll: %v", err)
-				return nil, 0, 0, err
-			}
 
-			defer dataProduct.Body.Close()
-
-			body, err := io.ReadAll(dataProduct.Body)
+			productResponse, err := o.httpClientProductService(res.ProductID, accessToken)
 			if err != nil {
 				log.Errorf("[OrderService-3] GetAll: %v", err)
-				return nil, 0, 0, err
-			}
-
-			var productResponse map[string]interface{}
-			err = json.Unmarshal(body, &productResponse)
-			if err != nil {
-				log.Errorf("[OrderService-4] GetAll: %v", err)
 				return nil, 0, 0, err
 			}
 
@@ -170,7 +91,7 @@ func (o *orderService) GetAll(ctx context.Context, queryString entity.QueryStrin
 	return results, count, total, nil
 }
 
-func (o *orderService) httpClientUserService(userID int64, accessToken string) map[string]interface{} {
+func (o *orderService) httpClientUserService(userID int64, accessToken string) (map[string]interface{}, error) {
 	baseUrlUser := fmt.Sprintf("%s/%s", o.cfg.App.UserServiceUrl, "admin/customers/"+strconv.FormatInt(userID, 10))
 	header := map[string]string{
 		"Authorization": "Bearer " + accessToken,
@@ -178,7 +99,7 @@ func (o *orderService) httpClientUserService(userID int64, accessToken string) m
 	}
 	dataUser, err := o.httpClient.CallURL("GET", baseUrlUser, header, nil)
 	if err != nil {
-		log.Errorf("[OrderService-5] GetAll: %v", err)
+		log.Errorf("[OrderService-1] httpClientUserService: %v", err)
 		return nil, err
 	}
 
@@ -186,9 +107,49 @@ func (o *orderService) httpClientUserService(userID int64, accessToken string) m
 
 	bodyUser, err := io.ReadAll(dataUser.Body)
 	if err != nil {
-		log.Errorf("[OrderService-6] GetAll: %v", err)
+		log.Errorf("[OrderService-2] httpClientUserService: %v", err)
 		return nil, err
 	}
+
+	var userResponse map[string]interface{}
+	err = json.Unmarshal(bodyUser, &userResponse)
+	if err != nil {
+		log.Errorf("[OrderService-3] httpClientUserService: %v", err)
+		return nil, err
+	}
+
+	return userResponse, nil
+
+}
+
+func (o *orderService) httpClientProductService(productID int64, accessToken string) (map[string]interface{}, error) {
+	baseUrlProduct := fmt.Sprintf("%s/%s", o.cfg.App.ProductServiceUrl, "admin/products/"+strconv.FormatInt(productID, 10))
+	header := map[string]string{
+		"Authorization": "Bearer " + accessToken,
+		"Accept":        "application/json",
+	}
+	dataProduct, err := o.httpClient.CallURL("GET", baseUrlProduct, header, nil)
+	if err != nil {
+		log.Errorf("[OrderService-1] httpClientProductService: %v", err)
+		return nil, err
+	}
+
+	defer dataProduct.Body.Close()
+
+	bodyProduct, err := io.ReadAll(dataProduct.Body)
+	if err != nil {
+		log.Errorf("[OrderService-2] httpClientProductService: %v", err)
+		return nil, err
+	}
+
+	var productResponse map[string]interface{}
+	err = json.Unmarshal(bodyProduct, &productResponse)
+	if err != nil {
+		log.Errorf("[OrderService-3] httpClientProductService: %v", err)
+		return nil, err
+	}
+
+	return productResponse, nil
 }
 
 func NewOrderService(repo repository.OrderRepositoryInterface, cfg *config.Config, httpClient httpclient.HttpClient) OrderServiceInterface {

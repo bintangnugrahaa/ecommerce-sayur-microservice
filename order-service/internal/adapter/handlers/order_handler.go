@@ -16,10 +16,73 @@ import (
 
 type OrderHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
+	GetByIDAdmin(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
+}
+
+// GetByIDAdmin implements OrderHandlerInterface.
+func (o *orderHandler) GetByIDAdmin(c echo.Context) error {
+	var (
+		ctx       = c.Request().Context()
+		respOrder = response.OrderAdminDetail{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[OrderHandler-1] GetAllAdmin: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
+	}
+
+	orderIDStr := c.Param("orderID")
+	if orderIDStr == "" {
+		log.Errorf("[OrderHandler-2] GetAllAdmin: %s", "orderID not found")
+		return c.JSON(http.StatusBadRequest, response.ResponseError("orderID not found"))
+	}
+
+	orderID, err := conv.StringToInt64(orderIDStr)
+	if err != nil {
+		log.Errorf("[OrderHandler-3] GetAllAdmin: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
+	}
+
+	order, err := o.orderService.GetByID(ctx, orderID, user)
+	if err != nil {
+		log.Errorf("[OrderHandler-4] GetAllAdmin: %v", err)
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, response.ResponseError("data not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	respOrder.ID = order.ID
+	respOrder.OrderCode = order.OrderCode
+	respOrder.Status = order.Status
+	respOrder.TotalAmount = order.TotalAmount
+	respOrder.OrderDateTime = order.OrderDate
+	respOrder.ShippingFee = order.ShippingFee
+	respOrder.Remarks = order.Remarks
+	respOrder.Customer = response.CustomerOrder{
+		CustomerName:    order.BuyerName,
+		CustomerPhone:   order.BuyerPhone,
+		CustomerAddress: order.BuyerAddress,
+		CustomerEmail:   order.BuyerEmail,
+		CustomerID:      order.BuyerID,
+	}
+
+	for _, val := range order.OrderItems {
+		respOrder.OrderDetail = append(respOrder.OrderDetail, response.OrderDetail{
+			ProductName:  val.ProductName,
+			ProductImage: val.ProductImage,
+			ProductPrice: val.Price,
+			Quantity:     val.Quantity,
+		})
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccess("success", respOrder))
+
 }
 
 // GetAllAdmin implements OrderHandlerInterface.
