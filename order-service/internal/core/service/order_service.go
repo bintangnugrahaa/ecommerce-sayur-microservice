@@ -9,6 +9,7 @@ import (
 	httpclient "order-service/internal/adapter/http_client"
 	"order-service/internal/adapter/repository"
 	"order-service/internal/core/domain/entity"
+	"order-service/utils/conv"
 	"strconv"
 
 	"github.com/labstack/gommon/log"
@@ -17,12 +18,32 @@ import (
 type OrderServiceInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error)
 	GetByID(ctx context.Context, orderID int64, accessToken string) (*entity.OrderEntity, error)
+	CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error)
 }
 
 type orderService struct {
 	repo       repository.OrderRepositoryInterface
 	cfg        *config.Config
 	httpClient httpclient.HttpClient
+}
+
+// CreateOrder implements OrderServiceInterface.
+func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error) {
+	req.OrderCode = conv.GenerateOrderCode()
+	shippingFee := 0
+	if req.ShippingType == "Delivery" {
+		shippingFee = 5000
+	}
+	req.ShippingFee = int64(shippingFee)
+	req.Status = "Pending"
+
+	orderID, err := o.repo.CreateOrder(ctx, req)
+	if err != nil {
+		log.Errorf("[OrderService-1] CreateOrder: %v", err)
+		return 0, err
+	}
+
+	return orderID, nil
 }
 
 // GetByID implements OrderServiceInterface.

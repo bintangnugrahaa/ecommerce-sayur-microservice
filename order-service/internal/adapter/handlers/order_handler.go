@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"order-service/config"
 	"order-service/internal/adapter"
+	"order-service/internal/adapter/handlers/request"
 	"order-service/internal/adapter/handlers/response"
 	"order-service/internal/core/domain/entity"
 	"order-service/internal/core/service"
@@ -17,10 +18,65 @@ import (
 type OrderHandlerInterface interface {
 	GetAllAdmin(c echo.Context) error
 	GetByIDAdmin(c echo.Context) error
+	CreateOrder(c echo.Context) error
 }
 
 type orderHandler struct {
 	orderService service.OrderServiceInterface
+}
+
+// CreateOrder implements OrderHandlerInterface.
+func (o *orderHandler) CreateOrder(c echo.Context) error {
+	var (
+		ctx = c.Request().Context()
+		req = request.CreateOrderRequest{}
+	)
+
+	user := c.Get("user").(string)
+	if user == "" {
+		log.Errorf("[OrderHandler-1] CreateOrder: %s", "data token not found")
+		return c.JSON(http.StatusNotFound, response.ResponseError("data token not found"))
+	}
+
+	if err := c.Bind(&req); err != nil {
+		log.Errorf("[OrderHandler-2] CreateOrder: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
+	}
+
+	if err := c.Validate(&req); err != nil {
+		log.Errorf("[OrderHandler-3] CreateOrder: %v", err)
+		return c.JSON(http.StatusBadRequest, response.ResponseError(err.Error()))
+	}
+
+	reqEntity := entity.OrderEntity{
+		BuyerID:      req.BuyerID,
+		OrderDate:    req.OrderDate,
+		TotalAmount:  req.TotalAmount,
+		ShippingType: req.ShippingType,
+		Remarks:      req.Remarks,
+		OrderTime:    req.OrderTime,
+	}
+
+	orderDetails := []entity.OrderItemEntity{}
+	for _, val := range req.OrderDetails {
+		orderDetails = append(orderDetails, entity.OrderItemEntity{
+			ProductID: val.ProductID,
+			Quantity:  val.Quantity,
+		})
+	}
+
+	reqEntity.OrderItems = orderDetails
+
+	orderID, err := o.orderService.CreateOrder(ctx, reqEntity)
+	if err != nil {
+		log.Errorf("[OrderHandler-4] CreateOrder: %v", err)
+		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
+	}
+
+	return c.JSON(http.StatusOK, response.ResponseSuccess("success", map[string]interface{}{
+		"order_id": orderID,
+	}))
+
 }
 
 // GetByIDAdmin implements OrderHandlerInterface.
@@ -160,8 +216,12 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 
 	e.Use(middleware.Recover())
 	mid := adapter.NewMiddlewareAdapter(cfg)
+	authGroup := e.Group("/auth", mid.CheckToken())
+	authGroup.POST("/orders", ordHandler.CreateOrder)
+
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)
+	adminGroup.GET("/orders/:orderID", ordHandler.GetByIDAdmin)
 
 	return ordHandler
 }
