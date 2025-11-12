@@ -192,19 +192,19 @@ func (o *orderHandler) GetAllAdmin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))
 	}
 
-	for _, result := range results {
+	for key := range results {
 		var productImage string
-		for _, val := range result.OrderItems {
+		for _, val := range results[key].OrderItems {
 			productImage = val.ProductImage
 		}
 
 		respOrders = append(respOrders, response.OrderAdminList{
-			ID:           result.ID,
-			OrderCode:    result.OrderCode,
-			Status:       result.Status,
-			TotalAmount:  result.TotalAmount,
+			ID:           results[key].ID,
+			OrderCode:    results[key].OrderCode,
+			Status:       results[key].Status,
+			TotalAmount:  results[key].TotalAmount,
 			ProductImage: productImage,
-			CustomerName: result.BuyerName,
+			CustomerName: results[key].BuyerName,
 		})
 	}
 

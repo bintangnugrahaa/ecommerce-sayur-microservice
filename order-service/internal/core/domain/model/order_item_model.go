@@ -7,7 +7,6 @@ type OrderItem struct {
 	OrderID   int64 `gorm:"order_id"`
 	ProductID int64 `gorm:"product_id"`
 	Quantity  int64 `gorm:"quantity"`
-	Price     int64 `gorm:"price"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
