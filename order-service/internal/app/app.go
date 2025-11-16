@@ -6,6 +6,7 @@ import (
 	"order-service/config"
 	"order-service/internal/adapter/handlers"
 	httpclient "order-service/internal/adapter/http_client"
+	"order-service/internal/adapter/message"
 	"order-service/internal/adapter/repository"
 	"order-service/internal/core/service"
 	"order-service/utils/validator"
@@ -39,7 +40,9 @@ func RunServer() {
 
 	httpClient := httpclient.NewHttpClient(cfg)
 
-	orderService := service.NewOrderService(orderRepo, cfg, httpClient)
+	messageRabbit := message.NewPublisherRabbitMQ(cfg)
+
+	orderService := service.NewOrderService(orderRepo, cfg, httpClient, messageRabbit)
 
 	e := echo.New()
 	e.Use(middleware.CORS())

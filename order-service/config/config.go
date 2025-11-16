@@ -8,7 +8,7 @@ type App struct {
 
 	JwtSecretKey string `json:"jwt_secret_key"`
 
-	ServerTimeOut int `json:"server_time_out"`
+	ServerTimeOut     int    `json:"server_time_out"`
 	ProductServiceUrl string `json:"product_service_url"`
 	UserServiceUrl    string `json:"user_service_url"`
 
@@ -39,11 +39,16 @@ type Redis struct {
 	Port string `json:"port"`
 }
 
+type PublisherName struct {
+	ProductUpdateStock string `json:"product_update_stock"`
+}
+
 type Config struct {
-	App      App      `json:"app"`
-	Psql     PsqlDB   `json:"psql"`
-	RabbitMQ RabbitMQ `json:"rabbitmq"`
-	Redis    Redis    `json:"redis"`
+	App           App           `json:"app"`
+	Psql          PsqlDB        `json:"psql"`
+	RabbitMQ      RabbitMQ      `json:"rabbitmq"`
+	Redis         Redis         `json:"redis"`
+	PublisherName PublisherName `json:"publisher_name"`
 }
 
 func NewConfig() *Config {
@@ -52,13 +57,13 @@ func NewConfig() *Config {
 			AppPort: viper.GetString("APP_PORT"),
 			AppEnv:  viper.GetString("APP_ENV"),
 
-			JwtSecretKey:  viper.GetString("JWT_SECRET_KEY"),
-			ServerTimeOut: viper.GetInt("SERVER_TIME_OUT"),
+			JwtSecretKey:      viper.GetString("JWT_SECRET_KEY"),
+			ServerTimeOut:     viper.GetInt("SERVER_TIME_OUT"),
 			ProductServiceUrl: viper.GetString("PRODUCT_SERVICE_URL"),
-			UserServiceUrl: viper.GetString("USER_SERVICE_URL"),
-			LatitudeRef:  viper.GetString("LATITUDE_REF"),
-			LongitudeRef: viper.GetString("LONGITUDE_REF"),
-			MaxDistance:  viper.GetInt("MAX_DISTANCE"),
+			UserServiceUrl:    viper.GetString("USER_SERVICE_URL"),
+			LatitudeRef:       viper.GetString("LATITUDE_REF"),
+			LongitudeRef:      viper.GetString("LONGITUDE_REF"),
+			MaxDistance:       viper.GetInt("MAX_DISTANCE"),
 		},
 		Psql: PsqlDB{
 			Host:      viper.GetString("DATABASE_HOST"),
@@ -78,6 +83,9 @@ func NewConfig() *Config {
 		Redis: Redis{
 			Host: viper.GetString("REDIS_HOST"),
 			Port: viper.GetString("REDIS_PORT"),
+		},
+		PublisherName: PublisherName{
+			ProductUpdateStock: viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
 		},
 	}
 }

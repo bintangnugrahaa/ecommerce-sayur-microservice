@@ -7,6 +7,7 @@ import (
 	"io"
 	"order-service/config"
 	httpclient "order-service/internal/adapter/http_client"
+	"order-service/internal/adapter/message"
 	"order-service/internal/adapter/repository"
 	"order-service/internal/core/domain/entity"
 	"order-service/utils/conv"
@@ -22,9 +23,10 @@ type OrderServiceInterface interface {
 }
 
 type orderService struct {
-	repo       repository.OrderRepositoryInterface
-	cfg        *config.Config
-	httpClient httpclient.HttpClient
+	repo              repository.OrderRepositoryInterface
+	cfg               *config.Config
+	httpClient        httpclient.HttpClient
+	publisherRabbitMQ message.PublishRabbitMQInterface
 }
 
 // CreateOrder implements OrderServiceInterface.
@@ -41,6 +43,10 @@ func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity) 
 	if err != nil {
 		log.Errorf("[OrderService-1] CreateOrder: %v", err)
 		return 0, err
+	}
+
+	for _, orderItem := range req.OrderItems {
+		o.publisherRabbitMQ.PublishUpdateStock(orderItem.ProductID, orderItem.Quantity)
 	}
 
 	return orderID, nil
@@ -187,10 +193,11 @@ func (o *orderService) httpClientProductService(productID int64, accessToken str
 	return &productResponse.Data, nil
 }
 
-func NewOrderService(repo repository.OrderRepositoryInterface, cfg *config.Config, httpClient httpclient.HttpClient) OrderServiceInterface {
+func NewOrderService(repo repository.OrderRepositoryInterface, cfg *config.Config, httpClient httpclient.HttpClient, publisherRabbitMQ message.PublishRabbitMQInterface) OrderServiceInterface {
 	return &orderService{
-		repo:       repo,
-		cfg:        cfg,
-		httpClient: httpClient,
+		repo:              repo,
+		cfg:               cfg,
+		httpClient:        httpClient,
+		publisherRabbitMQ: publisherRabbitMQ,
 	}
 }
