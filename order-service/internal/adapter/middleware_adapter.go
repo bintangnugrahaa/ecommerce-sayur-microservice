@@ -2,10 +2,12 @@ package adapter
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"order-service/config"
 	"order-service/internal/adapter/handlers/response"
 	"order-service/internal/core/domain/entity"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -15,10 +17,58 @@ import (
 
 type MiddlewareAdapterInterface interface {
 	CheckToken() echo.MiddlewareFunc
+	DistanceCheck() echo.MiddlewareFunc
 }
 
 type middlewareAdapter struct {
 	cfg *config.Config
+}
+
+func (m *middlewareAdapter) HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371
+
+	dLat := (lat2 - lat1) * (math.Pi / 180)
+	dLon := (lon2 - lon1) * (math.Pi / 180)
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*(math.Pi/180))*math.Cos(lat2*(math.Pi/180))*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return R * c
+}
+
+// DistanceCheck implements MiddlewareAdapterInterface.
+func (m *middlewareAdapter) DistanceCheck() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			latParam := c.QueryParam("lat")
+			lonParam := c.QueryParam("lng")
+			if latParam == "" || lonParam == "" {
+				log.Errorf("[MiddlewareAdapter-1] DistanceCheck: %s", "missing or invalid lat or lng")
+				return c.JSON(http.StatusBadRequest, response.ResponseError("missing or invalid lat or lng"))
+			}
+
+			lat, err1 := strconv.ParseFloat(latParam, 64)
+			lng, err2 := strconv.ParseFloat(lonParam, 64)
+
+			if err1 != nil || err2 != nil {
+				log.Errorf("[MiddlewareAdapter-1] DistanceCheck: %s", "missing or invalid lat or lng")
+				return c.JSON(http.StatusBadRequest, response.ResponseError("missing or invalid lat or lng"))
+			}
+
+			latRef, _ := strconv.ParseFloat(m.cfg.App.LatitudeRef, 64)
+			lngRef, _ := strconv.ParseFloat(m.cfg.App.LongitudeRef, 64)
+			distance := m.HaversineDistance(latRef, lngRef, lat, lng)
+			if distance > float64(m.cfg.App.MaxDistance) {
+				log.Errorf("[MiddlewareAdapter-1] DistanceCheck: %s", "distance too far")
+				return c.JSON(http.StatusBadRequest, response.ResponseError("distance too far"))
+			}
+
+			return next(c)
+		}
+	}
 }
 
 // CheckToken implements MiddlewareAdapterInterface.

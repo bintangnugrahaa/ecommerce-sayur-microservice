@@ -217,7 +217,7 @@ func NewOrderHandler(orderService service.OrderServiceInterface, e *echo.Echo, c
 	e.Use(middleware.Recover())
 	mid := adapter.NewMiddlewareAdapter(cfg)
 	authGroup := e.Group("/auth", mid.CheckToken())
-	authGroup.POST("/orders", ordHandler.CreateOrder)
+	authGroup.POST("/orders", ordHandler.CreateOrder, mid.DistanceCheck())
 
 	adminGroup := e.Group("/admin", mid.CheckToken())
 	adminGroup.GET("/orders", ordHandler.GetAllAdmin)

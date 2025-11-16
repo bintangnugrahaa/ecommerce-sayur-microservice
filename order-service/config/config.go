@@ -11,6 +11,10 @@ type App struct {
 	ServerTimeOut int `json:"server_time_out"`
 	ProductServiceUrl string `json:"product_service_url"`
 	UserServiceUrl    string `json:"user_service_url"`
+
+	LatitudeRef  string `json:"latitude_ref"`
+	LongitudeRef string `json:"longitude_ref"`
+	MaxDistance  int    `json:"max_distance"`
 }
 
 type PsqlDB struct {
@@ -52,6 +56,9 @@ func NewConfig() *Config {
 			ServerTimeOut: viper.GetInt("SERVER_TIME_OUT"),
 			ProductServiceUrl: viper.GetString("PRODUCT_SERVICE_URL"),
 			UserServiceUrl: viper.GetString("USER_SERVICE_URL"),
+			LatitudeRef:  viper.GetString("LATITUDE_REF"),
+			LongitudeRef: viper.GetString("LONGITUDE_REF"),
+			MaxDistance:  viper.GetInt("MAX_DISTANCE"),
 		},
 		Psql: PsqlDB{
 			Host:      viper.GetString("DATABASE_HOST"),
