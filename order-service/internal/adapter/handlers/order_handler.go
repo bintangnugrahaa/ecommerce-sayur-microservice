@@ -67,7 +67,7 @@ func (o *orderHandler) CreateOrder(c echo.Context) error {
 
 	reqEntity.OrderItems = orderDetails
 
-	orderID, err := o.orderService.CreateOrder(ctx, reqEntity)
+	orderID, err := o.orderService.CreateOrder(ctx, reqEntity, user)
 	if err != nil {
 		log.Errorf("[OrderHandler-4] CreateOrder: %v", err)
 		return c.JSON(http.StatusInternalServerError, response.ResponseError(err.Error()))

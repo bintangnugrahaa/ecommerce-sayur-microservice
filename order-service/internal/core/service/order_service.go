@@ -19,7 +19,7 @@ import (
 type OrderServiceInterface interface {
 	GetAll(ctx context.Context, queryString entity.QueryStringEntity, accessToken string) ([]entity.OrderEntity, int64, int64, error)
 	GetByID(ctx context.Context, orderID int64, accessToken string) (*entity.OrderEntity, error)
-	CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error)
+	CreateOrder(ctx context.Context, req entity.OrderEntity, accessToken string) (int64, error)
 }
 
 type orderService struct {
@@ -30,7 +30,7 @@ type orderService struct {
 }
 
 // CreateOrder implements OrderServiceInterface.
-func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity) (int64, error) {
+func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity, accessToken string) (int64, error) {
 	req.OrderCode = conv.GenerateOrderCode()
 	shippingFee := 0
 	if req.ShippingType == "Delivery" {
@@ -43,6 +43,15 @@ func (o *orderService) CreateOrder(ctx context.Context, req entity.OrderEntity) 
 	if err != nil {
 		log.Errorf("[OrderService-1] CreateOrder: %v", err)
 		return 0, err
+	}
+
+	resultData, err := o.GetByID(ctx, orderID, accessToken)
+	if err != nil {
+		log.Errorf("[OrderService-2] CreateOrder: %v", err)
+	}
+
+	if err := o.publisherRabbitMQ.PublishOrderToQueue(*resultData); err != nil {
+		log.Errorf("[OrderService-3] CreateOrder: %v", err)
 	}
 
 	for _, orderItem := range req.OrderItems {

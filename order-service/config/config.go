@@ -41,6 +41,11 @@ type Redis struct {
 
 type PublisherName struct {
 	ProductUpdateStock string `json:"product_update_stock"`
+	OrderPublish       string `json:"order_publish"`
+}
+
+type Elasticsearch struct {
+	Host string `json:"host"`
 }
 
 type Config struct {
@@ -49,6 +54,7 @@ type Config struct {
 	RabbitMQ      RabbitMQ      `json:"rabbitmq"`
 	Redis         Redis         `json:"redis"`
 	PublisherName PublisherName `json:"publisher_name"`
+	Elasticsearch Elasticsearch `json:"elasticsearch"`
 }
 
 func NewConfig() *Config {
@@ -86,6 +92,10 @@ func NewConfig() *Config {
 		},
 		PublisherName: PublisherName{
 			ProductUpdateStock: viper.GetString("PRODUCT_UPDATE_STOCK_NAME"),
+			OrderPublish:       viper.GetString("ORDER_PUBLISH_NAME"),
+		},
+		Elasticsearch: Elasticsearch{
+			Host: viper.GetString("ELASTICSEARCH_HOST"),
 		},
 	}
 }
